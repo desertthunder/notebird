@@ -51,8 +51,8 @@
 }
 
 .composer__text {
-  min-height: 11rem;
-  resize: vertical;
+  min-height: 12rem;
+  resize: none;
 }
 
 .composer__text--hidden {
@@ -72,12 +72,12 @@
 }
 
 .composer-editor .cm-editor {
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  border-radius: 0;
 }
 
 .composer-preview {
-  min-height: 11rem;
-  max-height: 22rem;
+  min-height: 12rem;
+  max-height: min(24rem, calc(100vh - 18rem));
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
@@ -96,10 +96,41 @@
   color: #b30000;
 }
 
+.composer-editor-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  background: var(--gray-1);
+  padding: var(--space-2) var(--space-3);
+}
+
+.composer-font-size {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.composer-font-size input {
+  width: 4rem;
+  padding: 0.2rem 0.35rem;
+}
+
 .composer__bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.composer__actions {
+  display: flex;
+  gap: var(--space-2);
 }
 
 .composer__count {

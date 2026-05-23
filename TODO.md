@@ -3,15 +3,6 @@
 Build Notebird as a tiny local Go web app/daemon-ish server: a personal wiki with
 an old-school Twitter feel.
 
-## Search and Navigation
-
-- [ ] Add SQLite FTS5 table/index
-- [ ] Add search endpoint
-- [ ] Update feed with HTMX search results
-- [ ] Add tag list/counts in left pane
-- [ ] Add tag-filtered timeline
-- [ ] Add wanted links page/pane
-
 ## Attachments
 
 Use content-addressed storage with SHA-256:

@@ -26,6 +26,29 @@ type ChirpRef struct {
 	CreatedFor string
 }
 
+type TagCount struct {
+	Tag   string
+	Count int
+}
+
+type FeedFilter struct {
+	Query string
+	Tag   string
+	Mode  string
+}
+
+type ChirpForm struct {
+	Chirp            Chirp
+	Action           string
+	Method           string
+	SubmitLabel      string
+	Heading          string
+	Draft            bool
+	ShowCancel       bool
+	TitlePlaceholder string
+	TextPlaceholder  string
+}
+
 type Config struct {
 	DataDir string `json:"data_dir"`
 	Host    string `json:"host"`

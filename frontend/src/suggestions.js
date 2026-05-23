@@ -8,10 +8,17 @@ async function fetchSuggestions(type, q) {
 }
 
 function wikiContext(context) {
-	const before = context.matchBefore(/\[\[[^\]\n]*$/);
-	if (!before) return null;
-	const query = before.text.slice(2);
-	return { from: before.from, to: before.to, query };
+	const line = context.state.doc.lineAt(context.pos);
+	const before = line.text.slice(0, context.pos - line.from);
+	const after = line.text.slice(context.pos - line.from);
+	const start = before.lastIndexOf("[[");
+	if (start < 0) return null;
+	const closeBeforeCursor = before.lastIndexOf("]]");
+	if (closeBeforeCursor > start) return null;
+	let query = before.slice(start + 2);
+	const closeAfterCursor = after.indexOf("]]");
+	const to = closeAfterCursor === 0 ? context.pos + 2 : context.pos;
+	return { from: line.from + start, to, query };
 }
 
 function tagContext(context) {
@@ -26,7 +33,6 @@ function tagContext(context) {
 async function notebirdCompletions(context) {
 	const wiki = wikiContext(context);
 	if (wiki) {
-		if (!context.explicit && wiki.query.length < 1) return null;
 		const items = await fetchSuggestions("chirp", wiki.query);
 		return {
 			from: wiki.from,
@@ -54,5 +60,5 @@ async function notebirdCompletions(context) {
 }
 
 export function notebirdAutocomplete() {
-	return autocompletion({ override: [notebirdCompletions] });
+	return autocompletion({ override: [notebirdCompletions], activateOnTyping: true });
 }

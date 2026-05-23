@@ -1,9 +1,16 @@
 {{define "chirp-list"}}
 <section id="feed" class="feed" aria-live="polite" hx-get="/chirps" hx-trigger="notebird:feed-refresh from:body" hx-swap="outerHTML">
+	{{if .Filter.Query}}
+	<div class="feed-filter">Search results for <strong>{{.Filter.Query}}</strong></div>
+	{{else if .Filter.Tag}}
+	<div class="feed-filter">Showing <strong>#{{.Filter.Tag}}</strong></div>
+	{{else if eq .Filter.Mode "wanted"}}
+	<div class="feed-filter">Chirps with wanted links</div>
+	{{end}}
 	{{if .Chirps}} {{range .Chirps}}{{template "chirp-item" .}}{{end}} {{else}}
 	<article class="empty-state">
-		<h2>Your timeline is quiet.</h2>
-		<p>Write the first Chirp. Use Markdown, add #tags, and link notes later with wiki links.</p>
+		<h2>No Chirps found.</h2>
+		<p>Try a different search, tag, or write a new Chirp.</p>
 	</article>
 	{{end}}
 </section>

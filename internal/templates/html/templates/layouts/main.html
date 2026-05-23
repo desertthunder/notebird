@@ -1,22 +1,10 @@
 {{define "layout-main"}}
 <div class="app-shell">
-	<aside class="sidebar">
-		<a class="wordmark" href="/">notebird</a>
-		<nav class="nav-list" aria-label="Primary">
-			<a class="nav-list__item is-active" href="/">Timeline</a>
-			<a class="nav-list__item" href="#">Tags</a>
-			<a class="nav-list__item" href="#">Wanted</a>
-		</nav>
-		<form class="search-box">
-			<label class="sr-only" for="search">Search</label>
-			<input id="search" name="q" type="search" placeholder="Search chirps" />
-		</form>
-		<p class="sidebar__hint">Your notes.</p>
-	</aside>
+	{{template "sidebar" .}}
 
 	<main class="timeline" aria-label="Timeline">
 		<header class="timeline__header">
-			<h1>Home</h1>
+			<h1>{{if .Filter.Query}}Search{{else if .Filter.Tag}}#{{.Filter.Tag}}{{else if eq .Filter.Mode "wanted"}}Wanted{{else}}Home{{end}}</h1>
 			<span class="timeline__badge">local</span>
 		</header>
 		{{template "chirp-create" .}}

@@ -1,0 +1,41 @@
+{{define "chirp-form"}}
+<section class="composer {{if .Chirp.ID}}composer--edit{{end}}" x-data="{ text: '', title: '', tab: 'write' }" @notebird:chirp-created.window="text = ''; title = ''; tab = 'write'">
+	{{if .Chirp.ID}}
+	<header class="detail__header">
+		<div>
+			<p class="eyebrow">{{.Heading}}</p>
+			<h2>{{.Chirp.Title}}</h2>
+			<span class="detail__meta">{{.Chirp.ID}}</span>
+		</div>
+	</header>
+	{{end}}
+	<form data-composer {{if not .Draft}}data-draft="off"{{end}} hx-{{.Method}}="{{.Action}}" hx-target="{{if .Chirp.ID}}#detail{{else}}#feed{{end}}" hx-swap="outerHTML">
+		<input class="composer__title" name="title" type="text" placeholder="{{.TitlePlaceholder}}" value="{{.Chirp.Title}}" x-model="title" />
+		<div class="composer-tabs" role="tablist" aria-label="Composer mode">
+			<button class="composer-tabs__tab" :class="{ 'is-active': tab === 'write' }" type="button" role="tab" :aria-selected="tab === 'write'" @click="tab = 'write'">Write</button>
+			<button class="composer-tabs__tab" :class="{ 'is-active': tab === 'preview' }" type="button" role="tab" :aria-selected="tab === 'preview'" @click="tab = 'preview'">Preview</button>
+		</div>
+		<div class="composer-panels">
+			<div class="composer-panel" x-show="tab === 'write'" role="tabpanel">
+				<textarea class="composer__text" data-editor="markdown" name="text" rows="7" placeholder="{{.TextPlaceholder}}" x-model="text" required>{{.Chirp.Text}}</textarea>
+				<div class="composer-editor-controls" data-editor-controls>
+					<button class="button button--quiet" type="button" data-toggle-wrap>Wrap on</button>
+					<label class="composer-font-size">Font <input type="number" min="11" max="24" step="1" value="16" data-font-size /> px</label>
+				</div>
+			</div>
+			<div class="composer-panel" x-show="tab === 'preview'" role="tabpanel" x-cloak>
+				<div class="composer-preview prose" data-composer-preview aria-live="polite">
+					<p class="composer-preview__placeholder">Preview appears here as you write.</p>
+				</div>
+			</div>
+		</div>
+		<div class="composer__bar">
+			<span class="composer__count" x-text="text.length + ' chars'">0 chars</span>
+			<div class="composer__actions">
+				{{if .ShowCancel}}<button class="button button--quiet" type="button" hx-get="/chirps/{{.Chirp.ID}}" hx-target="#detail" hx-swap="outerHTML">Cancel</button>{{end}}
+				<button class="button" type="submit">{{.SubmitLabel}}</button>
+			</div>
+		</div>
+	</form>
+</section>
+{{end}}

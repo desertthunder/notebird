@@ -47,7 +47,13 @@ func (s *Store) ReplaceFields(ctx context.Context, chirpID string, fields map[st
 		return err
 	}
 	defer tx.Rollback()
+	if err := replaceFields(ctx, tx, chirpID, fields); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
 
+func replaceFields(ctx context.Context, tx txer, chirpID string, fields map[string]string) error {
 	if _, err := tx.ExecContext(ctx, `delete from chirp_fields where chirp_id = ?`, chirpID); err != nil {
 		return err
 	}
@@ -56,7 +62,7 @@ func (s *Store) ReplaceFields(ctx context.Context, chirpID string, fields map[st
 			return err
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
 func (s *Store) ResolveTextRefs(ctx context.Context, text string) ([]ChirpRef, error) {
@@ -133,6 +139,37 @@ func (s *Store) Backlinks(ctx context.Context, chirpID string) ([]ChirpRef, erro
 		where r.to_chirp_id = ?
 		order by f.updated_at desc
 	`, chirpID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var refs []ChirpRef
+	for rows.Next() {
+		var ref ChirpRef
+		var resolved int
+		if err := rows.Scan(&ref.FromID, &ref.ToID, &ref.RefText, &resolved, &ref.FromTitle); err != nil {
+			return nil, err
+		}
+		ref.Resolved = resolved == 1
+		refs = append(refs, ref)
+	}
+	return refs, rows.Err()
+}
+
+func (s *Store) SuggestWantedRefs(ctx context.Context, q string, limit int) ([]ChirpRef, error) {
+	if limit <= 0 || limit > 25 {
+		limit = 10
+	}
+	rows, err := s.db.QueryContext(ctx, `
+		select r.from_chirp_id, '', r.ref_text, r.resolved, f.title
+		from chirp_refs r
+		join chirps f on f.id = r.from_chirp_id
+		where r.resolved = 0 and r.ref_text like ? collate nocase
+		group by r.ref_text
+		order by r.ref_text
+		limit ?
+	`, "%"+q+"%", limit)
 	if err != nil {
 		return nil, err
 	}

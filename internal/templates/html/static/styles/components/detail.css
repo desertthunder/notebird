@@ -2,6 +2,9 @@
   position: sticky;
   top: var(--space-4);
   align-self: start;
+  display: grid;
+  grid-template-rows: auto minmax(10rem, auto) auto auto auto;
+  max-height: calc(100vh - 7.5rem);
 }
 
 .detail__header {
@@ -35,6 +38,9 @@
 }
 
 .detail__body {
+  min-height: 10rem;
+  max-height: min(34rem, calc(100vh - 22rem));
+  overflow: auto;
   padding: var(--space-4);
 }
 

@@ -1,5 +1,18 @@
 .feed {
+  min-height: 14rem;
+  overflow: auto;
   background: var(--white);
+}
+
+.feed-filter {
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  background: var(--gray-1);
+  padding: var(--space-2) var(--space-4);
+}
+
+.feed-filter strong {
+  color: var(--blue-6);
 }
 
 .chirp {

@@ -8,6 +8,7 @@ import { atelierLakesideLight, base16Theme } from "./base16.js";
 import { notebirdAutocomplete } from "./suggestions.js";
 
 const markdownConfig = new Compartment();
+const wrapConfig = new Compartment();
 const draftKey = "notebird:composer:draft";
 
 function debounce(fn, delay) {
@@ -79,6 +80,7 @@ function enhanceComposer(form) {
 
 	const debouncedPreview = debounce((text) => updatePreview(form, text), 250);
 	const debouncedDraft = debounce((text) => saveDraft(form, text), 250);
+	let wrapEnabled = true;
 	const state = EditorState.create({
 		doc: textarea.value,
 		extensions: [
@@ -96,7 +98,7 @@ function enhanceComposer(form) {
 			markdownConfig.of(markdown({ codeLanguages: languages })),
 			notebirdAutocomplete(),
 			base16Theme(atelierLakesideLight),
-			EditorView.lineWrapping,
+			wrapConfig.of(EditorView.lineWrapping),
 			EditorView.updateListener.of((update) => {
 				if (!update.docChanged) return;
 				const text = update.state.doc.toString();
@@ -114,6 +116,17 @@ function enhanceComposer(form) {
 	textarea.classList.add("composer__text--hidden");
 
 	const view = new EditorView({ state, parent: mount });
+	const wrapButton = form.querySelector("[data-toggle-wrap]");
+	wrapButton?.addEventListener("click", () => {
+		wrapEnabled = !wrapEnabled;
+		view.dispatch({ effects: wrapConfig.reconfigure(wrapEnabled ? EditorView.lineWrapping : []) });
+		wrapButton.textContent = wrapEnabled ? "Wrap on" : "Wrap off";
+	});
+	const fontInput = form.querySelector("[data-font-size]");
+	fontInput?.addEventListener("input", () => {
+		const size = Math.min(24, Math.max(11, Number(fontInput.value) || 14));
+		view.dom.style.setProperty("--editor-font-size", `${size}px`);
+	});
 	form.addEventListener("submit", () => {
 		if (form.dataset.draft !== "off") clearDraft();
 	});

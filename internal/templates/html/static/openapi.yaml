@@ -30,6 +30,23 @@ paths:
   /chirps:
     get:
       summary: Render feed fragment
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Full-text search query.
+        - name: tag
+          in: query
+          schema:
+            type: string
+          description: Filter feed by tag.
+        - name: mode
+          in: query
+          schema:
+            type: string
+            enum: [timeline, wanted]
+          description: Feed mode.
       responses:
         '200':
           description: Feed HTML fragment
@@ -120,6 +137,16 @@ paths:
       responses:
         '200':
           description: Edit form HTML fragment
+          content:
+            text/html:
+              schema:
+                type: string
+  /nav:
+    get:
+      summary: Render sidebar navigation fragment
+      responses:
+        '200':
+          description: Sidebar HTML fragment with tags and wanted links
           content:
             text/html:
               schema:

@@ -36,10 +36,11 @@ export function base16Theme(theme) {
 				borderRadius: "var(--radius-sm)",
 				background: p.base00,
 				color: p.base05,
-				fontSize: "14px",
+				fontSize: "var(--editor-font-size, 16px)",
 			},
-			".cm-content": { caretColor: p.base08, fontFamily: "var(--font-mono)", minHeight: "9rem", padding: "0.65rem 0" },
+			".cm-content": { caretColor: p.base08, fontFamily: "var(--font-mono)", minHeight: "12rem", padding: "0.65rem 0" },
 			".cm-line": { padding: "0 0.75rem" },
+			".cm-scroller": { maxHeight: "12rem", overflow: "auto" },
 			".cm-selectionBackground, &.cm-focused .cm-selectionBackground": { backgroundColor: p.base01 },
 			".cm-cursor": { borderLeftColor: p.base08 },
 			".cm-gutters": {

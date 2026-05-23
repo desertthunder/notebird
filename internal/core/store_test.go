@@ -59,6 +59,18 @@ func TestStoreFieldsAndRefs(t *testing.T) {
 		t.Fatalf("unexpected backlinks: %#v", backlinks)
 	}
 
+	frontmatterChirp, err := store.CreateChirp(ctx, "With Fields", "---\ntags: [fieldtag]\nkind: note\n---\nBody")
+	if err != nil {
+		t.Fatal(err)
+	}
+	frontmatterFields, err := store.Fields(ctx, frontmatterChirp.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if frontmatterFields["tags"] != "fieldtag" || frontmatterFields["kind"] != "note" {
+		t.Fatalf("expected frontmatter fields stored, got %#v", frontmatterFields)
+	}
+
 	if err := store.SetField(ctx, a.ID, "mood", "curious"); err != nil {
 		t.Fatal(err)
 	}
@@ -79,6 +91,98 @@ func TestStoreFieldsAndRefs(t *testing.T) {
 	}
 	if _, ok := fields["mood"]; ok {
 		t.Fatalf("expected mood deleted, got %#v", fields)
+	}
+}
+
+func TestFrontmatterTitleUsedAsDefaultTitle(t *testing.T) {
+	ctx := context.Background()
+	store, err := OpenStore(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	c, err := store.CreateChirp(ctx, "", "---\ntitle: Art\n---\nBody")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Title != "Art" {
+		t.Fatalf("expected frontmatter title Art, got %q", c.Title)
+	}
+}
+
+func TestFrontmatterTagsAndHashExtraction(t *testing.T) {
+	text := "---\ntags: [front, matter]\nkind: note\n---\n# Title\n```\n#### ascii fence\n```\nBody #real-tag ####"
+	_, fm := splitFrontmatter(text)
+	fields := frontmatterFields(fm)
+	if fields["tags"] != "front,matter" || fields["kind"] != "note" {
+		t.Fatalf("unexpected frontmatter fields: %#v", fields)
+	}
+	tags := extractTags("", text)
+	want := map[string]bool{"front": true, "matter": true, "real-tag": true}
+	if len(tags) != len(want) {
+		t.Fatalf("expected %d tags, got %#v", len(want), tags)
+	}
+	for _, tag := range tags {
+		if !want[tag] {
+			t.Fatalf("unexpected tag %q in %#v", tag, tags)
+		}
+	}
+}
+
+func TestStoreSearchAndNavigationQueries(t *testing.T) {
+	ctx := context.Background()
+	store, err := OpenStore(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	if _, err := store.CreateChirp(ctx, "Go Note", "Working with sqlite and search #go"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.CreateChirp(ctx, "Garden", "Tomatoes and soil #garden [[Missing Plant]]"); err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := store.ListChirpsFiltered(ctx, FeedFilter{Query: "sqlite"}, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 || results[0].Title != "Go Note" {
+		t.Fatalf("unexpected search results: %#v", results)
+	}
+
+	results, err = store.ListChirpsFiltered(ctx, FeedFilter{Tag: "garden"}, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 || results[0].Title != "Garden" {
+		t.Fatalf("unexpected tag results: %#v", results)
+	}
+
+	results, err = store.ListChirpsFiltered(ctx, FeedFilter{Mode: "wanted"}, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 || results[0].Title != "Garden" {
+		t.Fatalf("unexpected wanted results: %#v", results)
+	}
+
+	tags, err := store.TagCounts(ctx, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tags) != 2 {
+		t.Fatalf("expected two tag counts, got %#v", tags)
+	}
+
+	wanted, err := store.SuggestWantedRefs(ctx, "Plant", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(wanted) != 1 || wanted[0].RefText != "Missing Plant" {
+		t.Fatalf("unexpected wanted suggestions: %#v", wanted)
 	}
 }
 

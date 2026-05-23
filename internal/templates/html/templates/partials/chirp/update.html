@@ -1,21 +1,5 @@
 {{define "chirp-update"}}
 <aside id="detail" class="detail" aria-label="Edit Chirp">
-	<header class="detail__header">
-		<div>
-			<p class="eyebrow">Editing Chirp</p>
-			<h2>{{.Selected.Title}}</h2>
-			<span class="detail__meta">{{.Selected.ID}}</span>
-		</div>
-	</header>
-	<form class="edit-form" data-composer data-draft="off" hx-put="/chirps/{{.Selected.ID}}" hx-target="#detail" hx-swap="outerHTML">
-		<label class="edit-form__label" for="edit-title">Title</label>
-		<input id="edit-title" class="composer__title" name="title" type="text" value="{{.Selected.Title}}" />
-		<label class="edit-form__label" for="edit-text">Markdown</label>
-		<textarea id="edit-text" class="composer__text" data-editor="markdown" name="text" rows="12" required>{{.Selected.Text}}</textarea>
-		<div class="composer__bar">
-			<button class="button button--quiet" type="button" hx-get="/chirps/{{.Selected.ID}}" hx-target="#detail" hx-swap="outerHTML">Cancel</button>
-			<button class="button" type="submit">Save</button>
-		</div>
-	</form>
+	{{template "chirp-form" .Form}}
 </aside>
 {{end}}
