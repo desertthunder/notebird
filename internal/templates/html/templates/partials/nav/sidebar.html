@@ -1,14 +1,14 @@
 {{define "sidebar"}}
-<aside id="sidebar" class="sidebar" hx-get="/nav" hx-trigger="notebird:nav-refresh from:body" hx-swap="outerHTML">
+<aside id="sidebar" class="sidebar" hx-get="/x/nav" hx-trigger="notebird:nav-refresh from:body" hx-swap="outerHTML">
 	<a class="wordmark" href="/">notebird</a>
 	<nav class="nav-list" aria-label="Primary">
-		<a class="nav-list__item {{if eq .Filter.Mode "timeline"}}is-active{{end}}" href="/" hx-get="/chirps" hx-target="#feed" hx-swap="outerHTML" hx-push-url="/">Index</a>
-		<a class="nav-list__item {{if eq .Filter.Mode "wanted"}}is-active{{end}}" href="/?mode=wanted" hx-get="/chirps?mode=wanted" hx-target="#feed" hx-swap="outerHTML" hx-push-url="/?mode=wanted">
+		<a class="nav-list__item {{if eq .Filter.Mode "timeline"}}is-active{{end}}" href="/" hx-get="/x/chirps" hx-target="#feed" hx-swap="outerHTML" hx-push-url="/">Index</a>
+		<a class="nav-list__item {{if eq .Filter.Mode "wanted"}}is-active{{end}}" href="/chirps?mode=wanted" hx-get="/x/chirps?mode=wanted" hx-target="#feed" hx-swap="outerHTML" hx-push-url="/chirps?mode=wanted">
 			Wanted {{if .WantedRefs}}<span class="nav-list__count">{{len .WantedRefs}}</span>{{end}}
 		</a>
 		<a class="nav-list__item" href="/docs" target="_blank">API</a>
 	</nav>
-	<form class="search-box" hx-get="/chirps" hx-target="#feed" hx-swap="outerHTML" hx-trigger="input changed delay:180ms, search, submit" hx-push-url="true">
+	<form class="search-box" hx-get="/x/chirps" hx-target="#feed" hx-swap="outerHTML" hx-trigger="input changed delay:180ms, search, submit">
 		<label class="sr-only" for="search">Search</label>
 		<input id="search" name="q" type="search" placeholder="Search chirps" value="{{.Filter.Query}}" />
 	</form>
@@ -17,7 +17,7 @@
 		<h2>Tags</h2>
 		<div class="tag-list">
 			{{range .Tags}}
-			<a class="tag-list__item" href="/?tag={{.Tag}}" hx-get="/chirps?tag={{.Tag}}" hx-target="#feed" hx-swap="outerHTML" hx-push-url="/?tag={{.Tag}}">
+			<a class="tag-list__item" href="/chirps?tag={{.Tag}}" hx-get="/x/chirps?tag={{.Tag}}" hx-target="#feed" hx-swap="outerHTML" hx-push-url="/chirps?tag={{.Tag}}">
 				<span>#{{.Tag}}</span>
 				<span>{{.Count}}</span>
 			</a>
@@ -30,11 +30,11 @@
 		<h2>Wanted</h2>
 		<div class="wanted-list">
 			{{range .WantedRefs}}
-			<a href="/chirps/{{.FromID}}" hx-get="/chirps/{{.FromID}}" hx-target="#detail" hx-swap="outerHTML">{{.RefText}}</a>
+			<a href="/chirps/{{.FromID}}" hx-get="/x/chirps/{{.FromID}}" hx-target="#detail" hx-swap="outerHTML">{{.RefText}}</a>
 			{{end}}
 		</div>
 	</section>
 	{{end}}
-	<p class="sidebar__hint">Your notes. Press <kbd>/</kbd> to search, <kbd>n</kbd> to write.</p>
+	<p class="sidebar__hint">Your notes.<br /><kbd>/</kbd> to search; <kbd>n</kbd> to write.</p>
 </aside>
 {{end}}

@@ -48,7 +48,8 @@ async function updatePreview(form, text) {
 function saveDraft(form, text) {
 	if (form.dataset.draft === "off") return;
 	const title = form.querySelector("input[name='title']")?.value || "";
-	localStorage.setItem(draftKey, JSON.stringify({ title, text, updatedAt: Date.now() }));
+	const tags = form.querySelector("input[name='tags']")?.value || "";
+	localStorage.setItem(draftKey, JSON.stringify({ title, tags, text, updatedAt: Date.now() }));
 }
 
 function clearDraft() {
@@ -63,6 +64,8 @@ function restoreDraft(form, textarea) {
 		textarea.value = draft.text;
 		const title = form.querySelector("input[name='title']");
 		if (title && draft.title) title.value = draft.title;
+		const tags = form.querySelector("input[name='tags']");
+		if (tags && draft.tags) tags.value = draft.tags;
 	} catch (_) {
 		clearDraft();
 	}
@@ -78,6 +81,19 @@ function enhanceComposer(form) {
 		textarea.dispatchEvent(new Event("input", { bubbles: true }));
 	};
 
+	let initialSnapshot = "";
+	const currentSnapshot = () => JSON.stringify({
+		title: form.querySelector("input[name='title']")?.value || "",
+		tags: form.querySelector("input[name='tags']")?.value || "",
+		text: textarea.value || "",
+	});
+	const updateDirty = () => {
+		form.dataset.dirty = currentSnapshot() !== initialSnapshot ? "true" : "false";
+	};
+	const markClean = () => {
+		initialSnapshot = currentSnapshot();
+		form.dataset.dirty = "false";
+	};
 	const debouncedPreview = debounce((text) => updatePreview(form, text), 250);
 	const debouncedDraft = debounce((text) => saveDraft(form, text), 250);
 	let wrapEnabled = true;
@@ -104,6 +120,7 @@ function enhanceComposer(form) {
 				const text = update.state.doc.toString();
 				textarea.value = text;
 				syncAlpine();
+				updateDirty();
 				debouncedPreview(text);
 				debouncedDraft(text);
 			}),
@@ -116,6 +133,8 @@ function enhanceComposer(form) {
 	textarea.classList.add("composer__text--hidden");
 
 	const view = new EditorView({ state, parent: mount });
+	markClean();
+	form.querySelectorAll("input[name='title'], input[name='tags']").forEach((input) => input.addEventListener("input", updateDirty));
 	const wrapButton = form.querySelector("[data-toggle-wrap]");
 	wrapButton?.addEventListener("click", () => {
 		wrapEnabled = !wrapEnabled;
@@ -128,15 +147,18 @@ function enhanceComposer(form) {
 		view.dom.style.setProperty("--editor-font-size", `${size}px`);
 	});
 	form.addEventListener("submit", () => {
+		markClean();
 		if (form.dataset.draft !== "off") clearDraft();
 	});
 	form.addEventListener("reset", () => {
 		view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "" } });
+		markClean();
 		clearDraft();
 		updatePreview(form, "");
 	});
 	window.addEventListener("notebird:chirp-created", () => {
 		view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "" } });
+		markClean();
 		clearDraft();
 		updatePreview(form, "");
 	});
@@ -167,6 +189,29 @@ function installActiveChirpTracking() {
 	syncActiveChirpFromDetail();
 }
 
+function dirtyComposer() {
+	return document.querySelector("form[data-composer][data-dirty='true']");
+}
+
+function confirmDirtyComposer(eventSource) {
+	const form = dirtyComposer();
+	if (!form) return true;
+	if (eventSource === form || eventSource?.matches?.("[type='submit']")) return true;
+	return window.confirm("Discard unsaved changes in the composer?");
+}
+
+function installDirtyComposerGuards() {
+	window.addEventListener("beforeunload", (event) => {
+		if (!dirtyComposer()) return;
+		event.preventDefault();
+		event.returnValue = "";
+	});
+	document.body.addEventListener("htmx:beforeRequest", (event) => {
+		if (confirmDirtyComposer(event.detail.elt)) return;
+		event.preventDefault();
+	});
+}
+
 function installGlobalShortcuts() {
 	document.addEventListener("keydown", (event) => {
 		if (event.defaultPrevented) return;
@@ -187,5 +232,6 @@ document.addEventListener("DOMContentLoaded", () => {
 	enhanceAllComposers();
 	installActiveChirpTracking();
 	installGlobalShortcuts();
+	installDirtyComposerGuards();
 });
 document.body.addEventListener("htmx:afterSwap", enhanceAllComposers);

@@ -1,5 +1,5 @@
 {{define "chirp-list"}}
-<section id="feed" class="feed" aria-live="polite" hx-get="/chirps" hx-trigger="notebird:feed-refresh from:body" hx-swap="outerHTML">
+<section id="feed" class="feed" aria-live="polite" hx-get="/x/chirps" hx-trigger="notebird:feed-refresh from:body" hx-swap="outerHTML">
 	{{if .Filter.Query}}
 	<div class="feed-filter">Search results for <strong>{{.Filter.Query}}</strong></div>
 	{{else if .Filter.Tag}}

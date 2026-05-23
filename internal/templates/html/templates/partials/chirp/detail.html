@@ -10,7 +10,7 @@
 	</header>
 	<div class="detail__body prose">{{safe .Selected.HTML}}</div>
 	<div class="detail__actions" aria-label="Chirp actions">
-		<button class="button button--quiet" type="button" hx-get="/chirps/{{.Selected.ID}}/edit" hx-target="#detail" hx-swap="outerHTML">
+		<button class="button button--quiet" type="button" hx-get="/x/chirps/{{.Selected.ID}}/edit" hx-target="#composer" hx-swap="outerHTML">
 			Edit
 		</button>
 		<button
@@ -30,7 +30,7 @@
 			{{range .Selected.Refs}}
 			<li>
 				{{if .Resolved}}
-				<a href="/chirps/{{.ToID}}" hx-get="/chirps/{{.ToID}}" hx-target="#detail" hx-swap="outerHTML"
+				<a href="/chirps/{{.ToID}}" hx-get="/x/chirps/{{.ToID}}" hx-target="#detail" hx-swap="outerHTML"
 					>{{if .ToTitle}}{{.ToTitle}}{{else}}{{.RefText}}{{end}}</a
 				>
 				{{else}}
@@ -49,7 +49,7 @@
 		<ul class="ref-list">
 			{{range .Selected.Backlinks}}
 			<li>
-				<a href="/chirps/{{.FromID}}" hx-get="/chirps/{{.FromID}}" hx-target="#detail" hx-swap="outerHTML"
+				<a href="/chirps/{{.FromID}}" hx-get="/x/chirps/{{.FromID}}" hx-target="#detail" hx-swap="outerHTML"
 					>{{.FromTitle}}</a
 				>
 			</li>

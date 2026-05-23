@@ -47,6 +47,7 @@ type ChirpForm struct {
 	ShowCancel       bool
 	TitlePlaceholder string
 	TextPlaceholder  string
+	TagValue         string
 }
 
 type Config struct {

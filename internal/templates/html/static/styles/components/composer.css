@@ -122,6 +122,19 @@
   padding: 0.2rem 0.35rem;
 }
 
+.composer-tags {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.composer-tags input {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+}
+
 .composer__bar {
   display: flex;
   align-items: center;

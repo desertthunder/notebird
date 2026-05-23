@@ -84,19 +84,10 @@ func (s *Store) migrate(ctx context.Context) error {
 	return err
 }
 
-func (s *Store) CreateChirp(ctx context.Context, title, text string) (Chirp, error) {
-	title = strings.TrimSpace(title)
-	text = strings.TrimSpace(text)
-	if text == "" {
-		return Chirp{}, errors.New("chirp text is required")
-	}
-	_, frontmatter := splitFrontmatter(text)
-	fields := frontmatterFields(frontmatter)
-	if title == "" {
-		title = strings.TrimSpace(fields["title"])
-	}
-	if title == "" {
-		title = firstLineTitle(text)
+func (s *Store) CreateChirp(ctx context.Context, title, text string, tagInput ...string) (Chirp, error) {
+	title, text, tags, fields, err := prepareChirpInput(title, text, strings.Join(tagInput, ","))
+	if err != nil {
+		return Chirp{}, err
 	}
 	now := time.Now().UTC()
 	c := Chirp{
@@ -104,7 +95,8 @@ func (s *Store) CreateChirp(ctx context.Context, title, text string) (Chirp, err
 		Title:     title,
 		Text:      text,
 		Type:      "text/markdown",
-		Tags:      extractTags(title, text),
+		Tags:      tags,
+		Fields:    fields,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -143,19 +135,10 @@ func (s *Store) CreateChirp(ctx context.Context, title, text string) (Chirp, err
 	return c, nil
 }
 
-func (s *Store) UpdateChirp(ctx context.Context, id, title, text string) (Chirp, error) {
-	title = strings.TrimSpace(title)
-	text = strings.TrimSpace(text)
-	if text == "" {
-		return Chirp{}, errors.New("chirp text is required")
-	}
-	_, frontmatter := splitFrontmatter(text)
-	fields := frontmatterFields(frontmatter)
-	if title == "" {
-		title = strings.TrimSpace(fields["title"])
-	}
-	if title == "" {
-		title = firstLineTitle(text)
+func (s *Store) UpdateChirp(ctx context.Context, id, title, text string, tagInput ...string) (Chirp, error) {
+	title, text, tags, fields, err := prepareChirpInput(title, text, strings.Join(tagInput, ","))
+	if err != nil {
+		return Chirp{}, err
 	}
 
 	existing, err := s.GetChirp(ctx, id)
@@ -164,7 +147,6 @@ func (s *Store) UpdateChirp(ctx context.Context, id, title, text string) (Chirp,
 	}
 
 	now := time.Now().UTC()
-	tags := extractTags(title, text)
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return Chirp{}, err
@@ -335,8 +317,7 @@ func scanChirp(row chirpScanner) (Chirp, error) {
 }
 
 func firstLineTitle(text string) string {
-	body, _ := splitFrontmatter(text)
-	line := strings.TrimSpace(strings.Split(body, "\n")[0])
+	line := strings.TrimSpace(strings.Split(text, "\n")[0])
 	line = strings.TrimPrefix(line, "#")
 	line = strings.TrimSpace(line)
 	if line == "" {
@@ -348,8 +329,41 @@ func firstLineTitle(text string) string {
 	return line
 }
 
-func extractTags(title, text string) []string {
-	text, frontmatter := splitFrontmatter(text)
+func prepareChirpInput(title, text, tagInput string) (string, string, []string, map[string]string, error) {
+	title = strings.TrimSpace(title)
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return "", "", nil, nil, errors.New("chirp text is required")
+	}
+	body, frontmatter := splitFrontmatter(text)
+	body = strings.TrimSpace(body)
+	fields := frontmatterFields(frontmatter)
+	if title == "" {
+		title = strings.TrimSpace(fields["title"])
+	}
+	if title == "" {
+		title = firstLineTitle(body)
+	}
+	tags := extractTags(title, body, append(frontmatterTags(frontmatter), parseTagInput(tagInput)...)...)
+	return title, body, tags, fields, nil
+}
+
+func parseTagInput(input string) []string {
+	var tags []string
+	for _, part := range strings.FieldsFunc(input, func(r rune) bool { return r == ',' || r == ' ' || r == '\t' || r == '\n' || r == '#' }) {
+		if part = strings.TrimSpace(part); part != "" {
+			tags = append(tags, part)
+		}
+	}
+	return tags
+}
+
+func extractTags(title, text string, explicit ...string) []string {
+	body, frontmatter := splitFrontmatter(text)
+	if frontmatter != "" {
+		text = body
+		explicit = append(frontmatterTags(frontmatter), explicit...)
+	}
 	seen := map[string]bool{}
 	var tags []string
 	add := func(tag string) {
@@ -367,7 +381,7 @@ func extractTags(title, text string) []string {
 			tags = append(tags, tag)
 		}
 	}
-	for _, tag := range frontmatterTags(frontmatter) {
+	for _, tag := range explicit {
 		add(tag)
 	}
 	for _, word := range strings.Fields(title + "\n" + text) {

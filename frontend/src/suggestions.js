@@ -1,4 +1,5 @@
 import { autocompletion } from "@codemirror/autocomplete";
+import { Prec } from "@codemirror/state";
 
 async function fetchSuggestions(type, q) {
 	const response = await fetch(`/suggest?type=${encodeURIComponent(type)}&q=${encodeURIComponent(q)}`);
@@ -8,17 +9,15 @@ async function fetchSuggestions(type, q) {
 }
 
 function wikiContext(context) {
-	const line = context.state.doc.lineAt(context.pos);
-	const before = line.text.slice(0, context.pos - line.from);
-	const after = line.text.slice(context.pos - line.from);
-	const start = before.lastIndexOf("[[");
+	const text = context.state.doc.sliceString(0, context.pos);
+	const start = text.lastIndexOf("[[");
 	if (start < 0) return null;
-	const closeBeforeCursor = before.lastIndexOf("]]");
+	const closeBeforeCursor = text.lastIndexOf("]]");
 	if (closeBeforeCursor > start) return null;
-	let query = before.slice(start + 2);
-	const closeAfterCursor = after.indexOf("]]");
-	const to = closeAfterCursor === 0 ? context.pos + 2 : context.pos;
-	return { from: line.from + start, to, query };
+	const query = text.slice(start + 2);
+	if (/\n\s*\n/.test(query)) return null;
+	const after = context.state.doc.sliceString(context.pos, Math.min(context.state.doc.length, context.pos + 2));
+	return { from: start + 2, to: context.pos, query, hasClose: after === "]]" };
 }
 
 function tagContext(context) {
@@ -37,11 +36,12 @@ async function notebirdCompletions(context) {
 		return {
 			from: wiki.from,
 			to: wiki.to,
+			validFor: /^[^\]\n]*$/,
 			options: items.map((item) => ({
 				label: item.label,
 				detail: item.detail,
 				type: "text",
-				apply: `[[${item.value}]]`,
+				apply: wiki.hasClose ? item.value : `${item.value}]]`,
 			})),
 		};
 	}
@@ -60,5 +60,5 @@ async function notebirdCompletions(context) {
 }
 
 export function notebirdAutocomplete() {
-	return autocompletion({ override: [notebirdCompletions], activateOnTyping: true });
+	return Prec.highest(autocompletion({ override: [notebirdCompletions], activateOnTyping: true }));
 }

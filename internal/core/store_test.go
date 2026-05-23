@@ -102,12 +102,28 @@ func TestFrontmatterTitleUsedAsDefaultTitle(t *testing.T) {
 	}
 	defer store.Close()
 
-	c, err := store.CreateChirp(ctx, "", "---\ntitle: Art\n---\nBody")
+	c, err := store.CreateChirp(ctx, "", "---\ntitle: Art\ntags: [front, matter]\n---\nBody #inline", "manual #typed")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if c.Title != "Art" {
 		t.Fatalf("expected frontmatter title Art, got %q", c.Title)
+	}
+	if c.Text != "Body #inline" {
+		t.Fatalf("expected frontmatter pruned from text, got %q", c.Text)
+	}
+	stored, err := store.GetChirp(ctx, c.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantTags := map[string]bool{"front": true, "matter": true, "inline": true, "manual": true, "typed": true}
+	if len(stored.Tags) != len(wantTags) {
+		t.Fatalf("expected tags %#v, got %#v", wantTags, stored.Tags)
+	}
+	for _, tag := range stored.Tags {
+		if !wantTags[tag] {
+			t.Fatalf("unexpected tag %q in %#v", tag, stored.Tags)
+		}
 	}
 }
 

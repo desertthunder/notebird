@@ -116,7 +116,11 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /openapi.yaml", a.handleOpenAPI)
 
 	mux.HandleFunc("GET /", a.handleHome)
-	mux.HandleFunc("GET /nav", a.handleNav)
+	mux.HandleFunc("GET /x/nav", a.handleNav)
+	mux.HandleFunc("GET /x/composer", a.handleComposerPartial)
+	mux.HandleFunc("GET /x/chirps", a.handleFeedPartial)
+	mux.HandleFunc("GET /x/chirps/{id}", a.handleChirpDetailPartial)
+	mux.HandleFunc("GET /x/chirps/{id}/edit", a.handleEditChirpPartial)
 	mux.HandleFunc("GET /chirps", a.handleFeed)
 	mux.HandleFunc("POST /chirps", a.handleCreateChirp)
 	mux.HandleFunc("POST /preview", a.handlePreview)
@@ -142,7 +146,7 @@ func (a *App) handleHome(w http.ResponseWriter, r *http.Request) {
 	wanted, _ := a.store.WantedRefs(r.Context())
 	data := PageData{
 		Chirps:      chirps,
-		Selected:    firstChirp(chirps),
+		Selected:    Chirp{},
 		CreateForm:  newCreateForm(),
 		Tags:        tags,
 		WantedRefs:  wanted,
@@ -151,6 +155,10 @@ func (a *App) handleHome(w http.ResponseWriter, r *http.Request) {
 		CurrentYear: time.Now().Year(),
 	}
 	a.execute(w, "base", data)
+}
+
+func (a *App) handleComposerPartial(w http.ResponseWriter, r *http.Request) {
+	a.executePartial(w, r, "chirp-create", map[string]any{"CreateForm": newCreateForm()})
 }
 
 func (a *App) handleNav(w http.ResponseWriter, r *http.Request) {
@@ -164,7 +172,7 @@ func (a *App) handleNav(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	a.execute(w, "sidebar", map[string]any{"Tags": tags, "WantedRefs": wanted, "Filter": feedFilterFromRequest(r)})
+	a.executePartial(w, r, "sidebar", map[string]any{"Tags": tags, "WantedRefs": wanted, "Filter": feedFilterFromRequest(r)})
 }
 
 func (a *App) handleFeed(w http.ResponseWriter, r *http.Request) {
@@ -175,7 +183,21 @@ func (a *App) handleFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.renderChirps(chirps)
-	a.execute(w, "chirp-list", map[string]any{"Chirps": chirps, "Filter": filter})
+	tags, _ := a.store.TagCounts(r.Context(), 50)
+	wanted, _ := a.store.WantedRefs(r.Context())
+	a.execute(w, "base", PageData{Chirps: chirps, CreateForm: newCreateForm(), Tags: tags, WantedRefs: wanted, Filter: filter, CurrentYear: time.Now().Year()})
+}
+
+func (a *App) handleFeedPartial(w http.ResponseWriter, r *http.Request) {
+	filter := feedFilterFromRequest(r)
+	chirps, err := a.store.ListChirpsFiltered(r.Context(), filter, 50)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	a.renderChirps(chirps)
+	w.Header().Set("HX-Push-Url", publicChirpsURL(r))
+	a.executePartial(w, r, "chirp-list", map[string]any{"Chirps": chirps, "Filter": filter})
 }
 
 // TODO: these could become an internal Controller-like struct or interface.
@@ -184,7 +206,7 @@ func (a *App) handleCreateChirp(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	created, err := a.store.CreateChirp(r.Context(), r.FormValue("title"), r.FormValue("text"))
+	created, err := a.store.CreateChirp(r.Context(), r.FormValue("title"), r.FormValue("text"), r.FormValue("tags"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -263,7 +285,27 @@ func (a *App) handleChirpDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.renderChirp(&c)
-	a.execute(w, "chirp-detail", map[string]any{"Selected": c})
+	filter := feedFilterFromRequest(r)
+	chirps, err := a.store.ListChirpsFiltered(r.Context(), filter, 50)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	a.renderChirps(chirps)
+	tags, _ := a.store.TagCounts(r.Context(), 50)
+	wanted, _ := a.store.WantedRefs(r.Context())
+	a.execute(w, "base", PageData{Chirps: chirps, Selected: c, CreateForm: newCreateForm(), Tags: tags, WantedRefs: wanted, Filter: filter, CurrentYear: time.Now().Year()})
+}
+
+func (a *App) handleChirpDetailPartial(w http.ResponseWriter, r *http.Request) {
+	c, err := a.store.GetChirp(r.Context(), r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "chirp not found", http.StatusNotFound)
+		return
+	}
+	a.renderChirp(&c)
+	w.Header().Set("HX-Push-Url", "/chirps/"+c.ID)
+	a.executePartial(w, r, "chirp-detail", map[string]any{"Selected": c})
 }
 
 func (a *App) handleEditChirp(w http.ResponseWriter, r *http.Request) {
@@ -272,7 +314,26 @@ func (a *App) handleEditChirp(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "chirp not found", http.StatusNotFound)
 		return
 	}
-	a.execute(w, "chirp-update", map[string]any{"Selected": c, "Form": newUpdateForm(c)})
+	a.renderChirp(&c)
+	chirps, err := a.store.ListChirps(r.Context(), 50)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	a.renderChirps(chirps)
+	tags, _ := a.store.TagCounts(r.Context(), 50)
+	wanted, _ := a.store.WantedRefs(r.Context())
+	a.execute(w, "base", PageData{Chirps: chirps, Selected: c, CreateForm: newUpdateForm(c), Tags: tags, WantedRefs: wanted, Filter: FeedFilter{Mode: "timeline"}, CurrentYear: time.Now().Year()})
+}
+
+func (a *App) handleEditChirpPartial(w http.ResponseWriter, r *http.Request) {
+	c, err := a.store.GetChirp(r.Context(), r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "chirp not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("HX-Push-Url", "/chirps/"+c.ID+"/edit")
+	a.executePartial(w, r, "chirp-update", map[string]any{"Selected": c, "Form": newUpdateForm(c)})
 }
 
 func (a *App) handleUpdateChirp(w http.ResponseWriter, r *http.Request) {
@@ -280,14 +341,15 @@ func (a *App) handleUpdateChirp(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	c, err := a.store.UpdateChirp(r.Context(), r.PathValue("id"), r.FormValue("title"), r.FormValue("text"))
+	c, err := a.store.UpdateChirp(r.Context(), r.PathValue("id"), r.FormValue("title"), r.FormValue("text"), r.FormValue("tags"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	a.renderChirp(&c)
 	w.Header().Set("HX-Trigger", `{"notebird:feed-refresh":{},"notebird:nav-refresh":{},"notebird:chirp-saved":{}}`)
-	a.execute(w, "chirp-detail", map[string]any{"Selected": c})
+	w.Header().Set("HX-Push-Url", "/chirps/"+c.ID)
+	a.execute(w, "chirp-create", map[string]any{"CreateForm": newCreateForm()})
 }
 
 func (a *App) handleDeleteChirp(w http.ResponseWriter, r *http.Request) {
@@ -327,6 +389,23 @@ func (a *App) execute(w http.ResponseWriter, name string, data any) {
 	a.lastTemplateMS.Store(uint64(time.Since(start).Microseconds()))
 }
 
+func (a *App) executePartial(w http.ResponseWriter, r *http.Request, name string, data any) {
+	if !wantsJSON(r) {
+		a.execute(w, name, data)
+		return
+	}
+	start := time.Now()
+	var buf bytes.Buffer
+	if err := a.templates.ExecuteTemplate(&buf, name, data); err != nil {
+		log.Error("template render failed", "template", name, "err", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	a.lastTemplateMS.Store(uint64(time.Since(start).Microseconds()))
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(map[string]any{"template": name, "html": buf.String(), "data": data})
+}
+
 func (a *App) recentTemplateMS() float64 {
 	return float64(a.lastTemplateMS.Load()) / 1000
 }
@@ -338,13 +417,11 @@ func (a *App) renderChirps(chirps []Chirp) {
 }
 
 func (a *App) renderChirp(c *Chirp) {
-	body, _ := splitFrontmatter(c.Text)
-	c.HTML = a.renderMarkdown(body, c.Refs)
+	c.HTML = a.renderMarkdown(c.Text, c.Refs)
 }
 
 func (a *App) renderChirpPreview(c *Chirp) {
-	body, _ := splitFrontmatter(c.Text)
-	c.HTML = a.renderMarkdown(truncateText(body, 320), c.Refs)
+	c.HTML = a.renderMarkdown(truncateText(c.Text, 320), c.Refs)
 }
 
 func (a *App) renderMarkdown(text string, refs []ChirpRef) string {
@@ -387,6 +464,7 @@ func newUpdateForm(c Chirp) ChirpForm {
 		ShowCancel:       true,
 		TitlePlaceholder: "Title",
 		TextPlaceholder:  "Markdown",
+		TagValue:         strings.Join(c.Tags, ", "),
 	}
 }
 
@@ -403,11 +481,18 @@ func feedFilterFromRequest(r *http.Request) FeedFilter {
 	return filter
 }
 
-func firstChirp(chirps []Chirp) Chirp {
-	if len(chirps) == 0 {
-		return Chirp{}
+func publicChirpsURL(r *http.Request) string {
+	q := r.URL.Query()
+	q.Del("json")
+	if q.Encode() == "" {
+		return "/chirps"
 	}
-	return chirps[0]
+	return "/chirps?" + q.Encode()
+}
+
+func wantsJSON(r *http.Request) bool {
+	value := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("json")))
+	return value == "1" || value == "true" || value == "yes"
 }
 
 func (a *App) requestLogger(next http.Handler) http.Handler {

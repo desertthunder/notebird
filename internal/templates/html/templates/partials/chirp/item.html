@@ -1,5 +1,5 @@
 {{define "chirp-item"}}
-<article class="chirp" id="chirp-{{.ID}}" data-chirp-id="{{.ID}}" hx-get="/chirps/{{.ID}}" hx-target="#detail" hx-swap="outerHTML" tabindex="0">
+<article class="chirp" id="chirp-{{.ID}}" data-chirp-id="{{.ID}}" hx-get="/x/chirps/{{.ID}}" hx-target="#detail" hx-swap="outerHTML" tabindex="0">
 	<header class="chirp__header">
 		<h2>{{.Title}}</h2>
 		<span class="chirp__meta">{{shortID .ID}} · {{timeAgo .CreatedAt}}</span>

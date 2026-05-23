@@ -29,27 +29,14 @@ paths:
                 type: string
   /chirps:
     get:
-      summary: Render feed fragment
+      summary: Render the Notebird UI with a filtered feed
       parameters:
-        - name: q
-          in: query
-          schema:
-            type: string
-          description: Full-text search query.
-        - name: tag
-          in: query
-          schema:
-            type: string
-          description: Filter feed by tag.
-        - name: mode
-          in: query
-          schema:
-            type: string
-            enum: [timeline, wanted]
-          description: Feed mode.
+        - $ref: '#/components/parameters/SearchQuery'
+        - $ref: '#/components/parameters/TagFilter'
+        - $ref: '#/components/parameters/FeedMode'
       responses:
         '200':
-          description: Feed HTML fragment
+          description: HTML application shell
           content:
             text/html:
               schema:
@@ -66,13 +53,16 @@ paths:
               properties:
                 title:
                   type: string
-                  description: Optional title. Defaults to first line of text.
+                  description: Optional title. Defaults to frontmatter title or first line of text.
                 text:
                   type: string
-                  description: Markdown body.
+                  description: Markdown body. YAML-style frontmatter is parsed and pruned before storage.
+                tags:
+                  type: string
+                  description: Optional space- or comma-separated tags from the tag input.
       responses:
         '200':
-          description: Feed HTML fragment
+          description: Feed HTML fragment after creation
           content:
             text/html:
               schema:
@@ -81,12 +71,15 @@ paths:
           description: Invalid form data
   /chirps/{id}:
     get:
-      summary: Render Chirp detail fragment
+      summary: Render the Notebird UI with a Chirp selected
       parameters:
         - $ref: '#/components/parameters/ChirpID'
+        - $ref: '#/components/parameters/SearchQuery'
+        - $ref: '#/components/parameters/TagFilter'
+        - $ref: '#/components/parameters/FeedMode'
       responses:
         '200':
-          description: Detail HTML fragment
+          description: HTML application shell
           content:
             text/html:
               schema:
@@ -109,9 +102,13 @@ paths:
                   type: string
                 text:
                   type: string
+                  description: Markdown body. YAML-style frontmatter is parsed and pruned before storage.
+                tags:
+                  type: string
+                  description: Optional space- or comma-separated tags from the tag input.
       responses:
         '200':
-          description: Updated detail HTML fragment
+          description: Create composer HTML fragment after update
           content:
             text/html:
               schema:
@@ -131,26 +128,102 @@ paths:
                 type: string
   /chirps/{id}/edit:
     get:
-      summary: Render Chirp edit form fragment
+      summary: Render the Notebird UI with a Chirp loaded in the composer
       parameters:
         - $ref: '#/components/parameters/ChirpID'
       responses:
         '200':
-          description: Edit form HTML fragment
+          description: HTML application shell
           content:
             text/html:
               schema:
                 type: string
-  /nav:
+        '404':
+          description: Chirp not found
+  /x/chirps:
     get:
-      summary: Render sidebar navigation fragment
+      summary: Render feed partial
+      parameters:
+        - $ref: '#/components/parameters/SearchQuery'
+        - $ref: '#/components/parameters/TagFilter'
+        - $ref: '#/components/parameters/FeedMode'
+        - $ref: '#/components/parameters/JSONPartial'
       responses:
         '200':
-          description: Sidebar HTML fragment with tags and wanted links
+          description: Feed partial as HTML or JSON envelope
           content:
             text/html:
               schema:
                 type: string
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartialResponse'
+  /x/chirps/{id}:
+    get:
+      summary: Render Chirp detail partial
+      parameters:
+        - $ref: '#/components/parameters/ChirpID'
+        - $ref: '#/components/parameters/JSONPartial'
+      responses:
+        '200':
+          description: Detail partial as HTML or JSON envelope
+          content:
+            text/html:
+              schema:
+                type: string
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartialResponse'
+        '404':
+          description: Chirp not found
+  /x/chirps/{id}/edit:
+    get:
+      summary: Render Chirp edit composer partial
+      parameters:
+        - $ref: '#/components/parameters/ChirpID'
+        - $ref: '#/components/parameters/JSONPartial'
+      responses:
+        '200':
+          description: Edit composer partial as HTML or JSON envelope
+          content:
+            text/html:
+              schema:
+                type: string
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartialResponse'
+        '404':
+          description: Chirp not found
+  /x/composer:
+    get:
+      summary: Render create composer partial
+      parameters:
+        - $ref: '#/components/parameters/JSONPartial'
+      responses:
+        '200':
+          description: Composer partial as HTML or JSON envelope
+          content:
+            text/html:
+              schema:
+                type: string
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartialResponse'
+  /x/nav:
+    get:
+      summary: Render sidebar navigation partial
+      parameters:
+        - $ref: '#/components/parameters/JSONPartial'
+      responses:
+        '200':
+          description: Sidebar partial as HTML or JSON envelope
+          content:
+            text/html:
+              schema:
+                type: string
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartialResponse'
   /preview:
     post:
       summary: Render Markdown preview
@@ -247,7 +320,46 @@ components:
       schema:
         type: string
       description: Chirp ULID
+    SearchQuery:
+      name: q
+      in: query
+      schema:
+        type: string
+      description: Full-text search query.
+    TagFilter:
+      name: tag
+      in: query
+      schema:
+        type: string
+      description: Filter feed by tag.
+    FeedMode:
+      name: mode
+      in: query
+      schema:
+        type: string
+        enum: [timeline, wanted]
+      description: Feed mode.
+    JSONPartial:
+      name: json
+      in: query
+      schema:
+        type: string
+        enum: ['1', 'true', 'yes']
+      description: When present and truthy, /x/ partial routes return a JSON envelope with rendered HTML and backing data.
   schemas:
+    PartialResponse:
+      type: object
+      properties:
+        template:
+          type: string
+          description: Template name rendered for the partial.
+        html:
+          type: string
+          description: Rendered HTML for the partial.
+        data:
+          type: object
+          additionalProperties: true
+          description: Data object passed to the template.
     Suggestion:
       type: object
       properties:
@@ -282,6 +394,10 @@ components:
         tags:
           type: array
           items:
+            type: string
+        fields:
+          type: object
+          additionalProperties:
             type: string
         created_at:
           type: string

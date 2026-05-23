@@ -1,5 +1,5 @@
 {{define "chirp-form"}}
-<section class="composer {{if .Chirp.ID}}composer--edit{{end}}" x-data="{ text: '', title: '', tab: 'write' }" @notebird:chirp-created.window="text = ''; title = ''; tab = 'write'">
+<section id="composer" class="composer {{if .Chirp.ID}}composer--edit{{end}}" x-data="{ text: '', title: '', tags: '', tab: 'write' }" @notebird:chirp-created.window="text = ''; title = ''; tags = ''; tab = 'write'">
 	{{if .Chirp.ID}}
 	<header class="detail__header">
 		<div>
@@ -9,7 +9,7 @@
 		</div>
 	</header>
 	{{end}}
-	<form data-composer {{if not .Draft}}data-draft="off"{{end}} hx-{{.Method}}="{{.Action}}" hx-target="{{if .Chirp.ID}}#detail{{else}}#feed{{end}}" hx-swap="outerHTML">
+	<form data-composer {{if not .Draft}}data-draft="off"{{end}} hx-{{.Method}}="{{.Action}}" hx-target="{{if .Chirp.ID}}#composer{{else}}#feed{{end}}" hx-swap="outerHTML" data-confirm-dirty>
 		<input class="composer__title" name="title" type="text" placeholder="{{.TitlePlaceholder}}" value="{{.Chirp.Title}}" x-model="title" />
 		<div class="composer-tabs" role="tablist" aria-label="Composer mode">
 			<button class="composer-tabs__tab" :class="{ 'is-active': tab === 'write' }" type="button" role="tab" :aria-selected="tab === 'write'" @click="tab = 'write'">Write</button>
@@ -29,10 +29,14 @@
 				</div>
 			</div>
 		</div>
+		<label class="composer-tags">
+			<span>Tags</span>
+			<input name="tags" type="text" placeholder="garden, reading, #idea" value="{{.TagValue}}" x-model="tags" />
+		</label>
 		<div class="composer__bar">
 			<span class="composer__count" x-text="text.length + ' chars'">0 chars</span>
 			<div class="composer__actions">
-				{{if .ShowCancel}}<button class="button button--quiet" type="button" hx-get="/chirps/{{.Chirp.ID}}" hx-target="#detail" hx-swap="outerHTML">Cancel</button>{{end}}
+				{{if .ShowCancel}}<button class="button button--quiet" type="button" hx-get="/x/composer" hx-target="#composer" hx-swap="outerHTML">Cancel</button>{{end}}
 				<button class="button" type="submit">{{.SubmitLabel}}</button>
 			</div>
 		</div>
