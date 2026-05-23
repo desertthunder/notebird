@@ -1,0 +1,14 @@
+{{define "footer"}}
+<footer class="site-footer">
+	<div class="site-footer__left">
+		<span>page {{printf "%.2f" .Metrics.PageMS}}ms</span>
+		<span aria-hidden="true">|</span>
+		<span>template {{printf "%.2f" .Metrics.TemplateMS}}ms</span>
+	</div>
+	<div class="site-footer__right">
+		<span>copyright {{.CurrentYear}} <a href="https://desertthunder.dev" rel="me">Owais J.</a></span>
+		<span aria-hidden="true">|</span>
+		<a href="/docs" target="_blank">API</a>
+	</div>
+</footer>
+{{end}}

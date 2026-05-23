@@ -88,7 +88,7 @@
 .composer-preview__placeholder,
 .composer-preview__error {
   color: var(--muted);
-  font-family: var(--font-ui);
+  font-family: var(--font-sans);
   font-size: 0.9rem;
 }
 

@@ -9,6 +9,7 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -19,10 +20,23 @@ import (
 )
 
 type App struct {
-	cfg       Config
-	store     *Store
-	templates *template.Template
-	markdown  goldmark.Markdown
+	cfg            Config
+	store          *Store
+	templates      *template.Template
+	markdown       goldmark.Markdown
+	lastTemplateMS atomic.Uint64
+}
+
+type PageMetrics struct {
+	PageMS     float64
+	TemplateMS float64
+}
+
+type PageData struct {
+	Chirps      []Chirp
+	Selected    Chirp
+	Metrics     PageMetrics
+	CurrentYear int
 }
 
 func New(cfg Config) (*App, error) {
@@ -97,6 +111,8 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok\n")) })
 	mux.HandleFunc("GET /debug/config", a.handleConfig)
 	mux.Handle("GET /debug/vars", expvar.Handler())
+	mux.HandleFunc("GET /docs", a.handleDocs)
+	mux.HandleFunc("GET /openapi.yaml", a.handleOpenAPI)
 
 	mux.HandleFunc("GET /", a.handleHome)
 	mux.HandleFunc("POST /chirps", a.handleCreateChirp)
@@ -107,15 +123,18 @@ func (a *App) routes() http.Handler {
 }
 
 func (a *App) handleHome(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	chirps, err := a.store.ListChirps(r.Context(), 50)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	a.renderChirps(chirps)
-	data := map[string]any{
-		"Chirps":   chirps,
-		"Selected": firstChirp(chirps),
+	data := PageData{
+		Chirps:      chirps,
+		Selected:    firstChirp(chirps),
+		Metrics:     PageMetrics{PageMS: float64(time.Since(start).Microseconds()) / 1000, TemplateMS: a.recentTemplateMS()},
+		CurrentYear: time.Now().Year(),
 	}
 	a.execute(w, "base", data)
 }
@@ -164,16 +183,36 @@ func (a *App) handleChirpDetail(w http.ResponseWriter, r *http.Request) {
 	a.execute(w, "detail", map[string]any{"Selected": c})
 }
 
+func (a *App) handleDocs(w http.ResponseWriter, r *http.Request) {
+	a.execute(w, "docs", nil)
+}
+
+func (a *App) handleOpenAPI(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/yaml; charset=utf-8")
+	file, err := tmplfs.Assets.ReadFile("static/openapi.yaml")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(file)
+}
+
 func (a *App) handleConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(a.cfg)
 }
 
 func (a *App) execute(w http.ResponseWriter, name string, data any) {
+	start := time.Now()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := a.templates.ExecuteTemplate(w, name, data); err != nil {
 		log.Error("template render failed", "template", name, "err", err)
 	}
+	a.lastTemplateMS.Store(uint64(time.Since(start).Microseconds()))
+}
+
+func (a *App) recentTemplateMS() float64 {
+	return float64(a.lastTemplateMS.Load()) / 1000
 }
 
 func (a *App) renderChirps(chirps []Chirp) {

@@ -1,0 +1,169 @@
+openapi: 3.0.3
+info:
+  title: Notebird API
+  version: 0.1.0
+  description: Local HTTP API for Notebird, a personal wiki built from Chirps.
+servers:
+  - url: http://127.0.0.1:7331
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: ok
+  /:
+    get:
+      summary: Render the main Notebird UI
+      responses:
+        '200':
+          description: HTML application shell
+          content:
+            text/html:
+              schema:
+                type: string
+  /chirps:
+    post:
+      summary: Create a Chirp
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                title:
+                  type: string
+                  description: Optional title. Defaults to first line of text.
+                text:
+                  type: string
+                  description: Markdown body.
+      responses:
+        '200':
+          description: Feed HTML fragment
+          content:
+            text/html:
+              schema:
+                type: string
+        '400':
+          description: Invalid form data
+  /chirps/{id}:
+    get:
+      summary: Render Chirp detail fragment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Chirp ULID
+      responses:
+        '200':
+          description: Detail HTML fragment
+          content:
+            text/html:
+              schema:
+                type: string
+        '404':
+          description: Chirp not found
+  /preview:
+    post:
+      summary: Render Markdown preview
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  description: Markdown body to preview.
+      responses:
+        '200':
+          description: Rendered Markdown HTML fragment
+          content:
+            text/html:
+              schema:
+                type: string
+  /debug/config:
+    get:
+      summary: Show runtime config
+      responses:
+        '200':
+          description: Runtime config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Config'
+  /debug/vars:
+    get:
+      summary: expvar debug variables
+      responses:
+        '200':
+          description: expvar JSON
+          content:
+            application/json:
+              schema:
+                type: object
+  /docs:
+    get:
+      summary: Swagger UI API documentation
+      responses:
+        '200':
+          description: API documentation page
+          content:
+            text/html:
+              schema:
+                type: string
+  /openapi.yaml:
+    get:
+      summary: OpenAPI v3 specification
+      responses:
+        '200':
+          description: OpenAPI document
+          content:
+            application/yaml:
+              schema:
+                type: string
+components:
+  schemas:
+    Config:
+      type: object
+      properties:
+        data_dir:
+          type: string
+        host:
+          type: string
+        port:
+          type: integer
+    Chirp:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ULID canonical identity.
+        title:
+          type: string
+        text:
+          type: string
+        type:
+          type: string
+          example: text/markdown
+        tags:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time

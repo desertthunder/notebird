@@ -37,7 +37,7 @@
 }
 
 .prose {
-  font-family: var(--font-detail);
+  font-family: var(--font-sans);
   font-size: 1rem;
   line-height: 1.55;
 }

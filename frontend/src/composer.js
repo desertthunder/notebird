@@ -4,26 +4,7 @@ import { languages } from "@codemirror/language-data";
 import { Compartment, EditorState } from "@codemirror/state";
 import { keymap } from "@codemirror/view";
 import { basicSetup, EditorView } from "codemirror";
-
-const editorTheme = EditorView.theme({
-	"&": {
-		border: "1px solid var(--border)",
-		borderRadius: "var(--radius-sm)",
-		background: "var(--white)",
-		fontSize: "14px",
-	},
-	".cm-content": { fontFamily: "var(--font-ui)", minHeight: "9rem", padding: "0.65rem 0" },
-	".cm-line": { padding: "0 0.75rem" },
-	".cm-gutters": {
-		background: "#f5f8fa",
-		borderRight: "1px solid var(--border)",
-		color: "var(--muted)",
-		fontFamily: "var(--font-mono)",
-	},
-	".cm-activeLine": { background: "#f7fbfd" },
-	".cm-activeLineGutter": { background: "#e8f4fb" },
-	"&.cm-focused": { outline: "2px solid var(--accent)", outlineOffset: "2px" },
-});
+import { atelierLakesideLight, base16Theme } from "./base16.js";
 
 const markdownConfig = new Compartment();
 
@@ -77,7 +58,7 @@ function enhanceComposer(form) {
 			basicSetup,
 			keymap.of([indentWithTab]),
 			markdownConfig.of(markdown({ codeLanguages: languages })),
-			editorTheme,
+			base16Theme(atelierLakesideLight),
 			EditorView.lineWrapping,
 			EditorView.updateListener.of((update) => {
 				if (!update.docChanged) return;

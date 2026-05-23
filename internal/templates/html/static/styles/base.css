@@ -1,7 +1,9 @@
 body {
+  display: grid;
+  grid-template-rows: 1fr auto;
   color: var(--text);
   background: linear-gradient(#c0deed 0 170px, var(--surface) 170px);
-  font-family: var(--font-ui);
+  font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.35;
 }

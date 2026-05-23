@@ -7,6 +7,10 @@
   padding-block: var(--space-4);
 }
 
+.app-shell > main {
+  min-height: 0;
+}
+
 .sidebar, .timeline, .detail {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
