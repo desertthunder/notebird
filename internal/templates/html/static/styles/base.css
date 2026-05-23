@@ -1,0 +1,23 @@
+body {
+  color: var(--text);
+  background: linear-gradient(#c0deed 0 170px, var(--surface) 170px);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+input, textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--white);
+  padding: var(--space-2) var(--space-3);
+}
+
+input:focus, textarea:focus, button:focus-visible, article:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+p + p { margin-top: var(--space-3); }

@@ -1,0 +1,24 @@
+:root {
+  --blue-1: #e8f4fb;
+  --blue-2: #cfe8f7;
+  --blue-3: #8ec9ed;
+  --blue-4: #2f9bd7;
+  --blue-5: #1678b7;
+  --blue-6: #0d4f7c;
+  --gray-1: #f5f8fa;
+  --gray-2: #e6ecf0;
+  --gray-3: #ccd6dd;
+  --gray-4: #8899a6;
+  --gray-5: #66757f;
+  --gray-6: #292f33;
+  --white: #ffffff;
+
+  --surface: var(--gray-1);
+  --surface-raised: var(--white);
+  --surface-blue: var(--blue-1);
+  --border: var(--gray-3);
+  --text: var(--gray-6);
+  --muted: var(--gray-5);
+  --accent: var(--blue-4);
+  --accent-strong: var(--blue-5);
+}

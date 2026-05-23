@@ -1,0 +1,50 @@
+@font-face {
+  font-family: "Arimo";
+  src: url("/static/fonts/arimo/arimo-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Arimo";
+  src: url("/static/fonts/arimo/arimo-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fredoka";
+  src: url("/static/fonts/fredoka/fredoka-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Roboto Mono";
+  src: url("/static/fonts/roboto-mono/roboto-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Source Sans 3";
+  src: url("/static/fonts/source-sans-3/source-sans-3-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Nunito Sans";
+  src: url("/static/fonts/nunito-sans/nunito-sans-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-ui: "Arimo", Arial, sans-serif;
+  --font-wordmark: "Fredoka", "Arial Rounded MT Bold", sans-serif;
+  --font-mono: "Roboto Mono", ui-monospace, monospace;
+  --font-detail: "Source Sans 3", Arial, sans-serif;
+  --font-display: "Nunito Sans", Arial, sans-serif;
+}

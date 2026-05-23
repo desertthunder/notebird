@@ -1,0 +1,28 @@
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.button {
+  border: 1px solid var(--accent-strong);
+  border-radius: 999px;
+  color: white;
+  background: linear-gradient(var(--blue-4), var(--blue-5));
+  font-weight: 700;
+  padding: 0.45rem 1rem;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35);
+}
+
+.button:hover { background: linear-gradient(#38a8e4, var(--blue-5)); }
+
+.tag {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
