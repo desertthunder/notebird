@@ -128,6 +128,62 @@ func (s *Store) CreateChirp(ctx context.Context, title, text string) (Chirp, err
 	return c, nil
 }
 
+func (s *Store) UpdateChirp(ctx context.Context, id, title, text string) (Chirp, error) {
+	title = strings.TrimSpace(title)
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return Chirp{}, errors.New("chirp text is required")
+	}
+	if title == "" {
+		title = firstLineTitle(text)
+	}
+
+	existing, err := s.GetChirp(ctx, id)
+	if err != nil {
+		return Chirp{}, err
+	}
+
+	now := time.Now().UTC()
+	tags := extractTags(text)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Chirp{}, err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, `update chirps set title = ?, text = ?, updated_at = ? where id = ?`, title, text, now.Format(time.RFC3339Nano), id); err != nil {
+		return Chirp{}, err
+	}
+	if _, err := tx.ExecContext(ctx, `delete from chirp_tags where chirp_id = ?`, id); err != nil {
+		return Chirp{}, err
+	}
+	for _, tag := range tags {
+		if _, err := tx.ExecContext(ctx, `insert or ignore into chirp_tags (chirp_id, tag) values (?, ?)`, id, tag); err != nil {
+			return Chirp{}, err
+		}
+	}
+	if err := s.replaceRefs(ctx, tx, id, text); err != nil {
+		return Chirp{}, err
+	}
+	if existing.Title != title {
+		if _, err := tx.ExecContext(ctx, `update chirp_refs set to_chirp_id = null, resolved = 0 where to_chirp_id = ? and ref_text != ? collate nocase`, id, title); err != nil {
+			return Chirp{}, err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `update chirp_refs set to_chirp_id = ?, resolved = 1 where resolved = 0 and ref_text = ? collate nocase`, id, title); err != nil {
+		return Chirp{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return Chirp{}, err
+	}
+	return s.GetChirp(ctx, id)
+}
+
+func (s *Store) DeleteChirp(ctx context.Context, id string) error {
+	_, err := s.db.ExecContext(ctx, `delete from chirps where id = ?`, id)
+	return err
+}
+
 func (s *Store) ListChirps(ctx context.Context, limit int) ([]Chirp, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 50
@@ -224,6 +280,48 @@ func extractTags(text string) []string {
 		}
 	}
 	return tags
+}
+
+func (s *Store) SuggestTitles(ctx context.Context, q string, limit int) ([]Chirp, error) {
+	q = strings.TrimSpace(q)
+	if limit <= 0 || limit > 25 {
+		limit = 10
+	}
+	rows, err := s.db.QueryContext(ctx, `select id, title, text, type, created_at, updated_at from chirps where title like ? collate nocase order by updated_at desc limit ?`, "%"+q+"%", limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var chirps []Chirp
+	for rows.Next() {
+		c, err := scanChirp(rows)
+		if err != nil {
+			return nil, err
+		}
+		chirps = append(chirps, c)
+	}
+	return chirps, rows.Err()
+}
+
+func (s *Store) SuggestTags(ctx context.Context, q string, limit int) ([]string, error) {
+	q = strings.TrimSpace(strings.TrimPrefix(q, "#"))
+	if limit <= 0 || limit > 25 {
+		limit = 10
+	}
+	rows, err := s.db.QueryContext(ctx, `select tag from chirp_tags where tag like ? collate nocase group by tag order by count(*) desc, tag limit ?`, q+"%", limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var tags []string
+	for rows.Next() {
+		var tag string
+		if err := rows.Scan(&tag); err != nil {
+			return nil, err
+		}
+		tags = append(tags, tag)
+	}
+	return tags, rows.Err()
 }
 
 func (s *Store) Stats(ctx context.Context) (map[string]any, error) {

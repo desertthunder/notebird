@@ -45,21 +45,17 @@ func New(cfg Config) (*App, error) {
 		return nil, err
 	}
 
-	tmpl, err := template.New("notebird").Funcs(template.FuncMap{
-		"safe": func(s string) template.HTML { return template.HTML(s) },
-		"shortID": func(s string) string {
-			if len(s) <= 8 {
-				return s
-			}
-			return s[:8]
-		},
+	tmpl := template.New("notebird").Funcs(template.FuncMap{
+		"safe":    func(s string) template.HTML { return template.HTML(s) },
+		"shortID": shortID,
 		"timeAgo": utils.TimeAgo,
-	}).ParseFS(
-		tmplfs.Assets,
-		"templates/*.html",
-		"templates/layouts/*.html",
-		"templates/partials/*.html",
-	)
+	})
+	patterns, err := tmplfs.TemplatePatterns(tmplfs.Assets, "templates")
+	if err != nil {
+		store.Close()
+		return nil, err
+	}
+	tmpl, err = tmpl.ParseFS(tmplfs.Assets, patterns...)
 	if err != nil {
 		store.Close()
 		return nil, err
@@ -115,9 +111,14 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /openapi.yaml", a.handleOpenAPI)
 
 	mux.HandleFunc("GET /", a.handleHome)
+	mux.HandleFunc("GET /chirps", a.handleFeed)
 	mux.HandleFunc("POST /chirps", a.handleCreateChirp)
 	mux.HandleFunc("POST /preview", a.handlePreview)
+	mux.HandleFunc("GET /suggest", a.handleSuggest)
 	mux.HandleFunc("GET /chirps/{id}", a.handleChirpDetail)
+	mux.HandleFunc("GET /chirps/{id}/edit", a.handleEditChirp)
+	mux.HandleFunc("PUT /chirps/{id}", a.handleUpdateChirp)
+	mux.HandleFunc("DELETE /chirps/{id}", a.handleDeleteChirp)
 
 	return a.requestLogger(mux)
 }
@@ -139,13 +140,24 @@ func (a *App) handleHome(w http.ResponseWriter, r *http.Request) {
 	a.execute(w, "base", data)
 }
 
+func (a *App) handleFeed(w http.ResponseWriter, r *http.Request) {
+	chirps, err := a.store.ListChirps(r.Context(), 50)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	a.renderChirps(chirps)
+	a.execute(w, "chirp-list", map[string]any{"Chirps": chirps})
+}
+
 // TODO: these could become an internal Controller-like struct or interface.
 func (a *App) handleCreateChirp(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if _, err := a.store.CreateChirp(r.Context(), r.FormValue("title"), r.FormValue("text")); err != nil {
+	created, err := a.store.CreateChirp(r.Context(), r.FormValue("title"), r.FormValue("text"))
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -155,8 +167,8 @@ func (a *App) handleCreateChirp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.renderChirps(chirps)
-	w.Header().Set("HX-Trigger", "notebird:chirp-created")
-	a.execute(w, "feed", map[string]any{"Chirps": chirps})
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"notebird:chirp-created":{"id":"%s"}}`, created.ID))
+	a.execute(w, "chirp-list", map[string]any{"Chirps": chirps})
 }
 
 func (a *App) handlePreview(w http.ResponseWriter, r *http.Request) {
@@ -173,6 +185,36 @@ func (a *App) handlePreview(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(a.renderMarkdown(r.FormValue("text"), refs)))
 }
 
+func (a *App) handleSuggest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	kind := r.URL.Query().Get("type")
+	q := r.URL.Query().Get("q")
+	switch kind {
+	case "tag":
+		tags, err := a.store.SuggestTags(r.Context(), q, 10)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		items := make([]map[string]string, 0, len(tags))
+		for _, tag := range tags {
+			items = append(items, map[string]string{"label": "#" + tag, "value": "#" + tag, "detail": "tag"})
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"items": items})
+	default:
+		chirps, err := a.store.SuggestTitles(r.Context(), q, 10)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		items := make([]map[string]string, 0, len(chirps))
+		for _, chirp := range chirps {
+			items = append(items, map[string]string{"label": chirp.Title, "value": chirp.Title, "detail": shortID(chirp.ID)})
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"items": items})
+	}
+}
+
 func (a *App) handleChirpDetail(w http.ResponseWriter, r *http.Request) {
 	c, err := a.store.GetChirp(r.Context(), r.PathValue("id"))
 	if err != nil {
@@ -180,7 +222,40 @@ func (a *App) handleChirpDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.renderChirp(&c)
-	a.execute(w, "detail", map[string]any{"Selected": c})
+	a.execute(w, "chirp-detail", map[string]any{"Selected": c})
+}
+
+func (a *App) handleEditChirp(w http.ResponseWriter, r *http.Request) {
+	c, err := a.store.GetChirp(r.Context(), r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "chirp not found", http.StatusNotFound)
+		return
+	}
+	a.execute(w, "chirp-update", map[string]any{"Selected": c})
+}
+
+func (a *App) handleUpdateChirp(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	c, err := a.store.UpdateChirp(r.Context(), r.PathValue("id"), r.FormValue("title"), r.FormValue("text"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	a.renderChirp(&c)
+	w.Header().Set("HX-Trigger", `{"notebird:feed-refresh":{},"notebird:chirp-saved":{}}`)
+	a.execute(w, "chirp-detail", map[string]any{"Selected": c})
+}
+
+func (a *App) handleDeleteChirp(w http.ResponseWriter, r *http.Request) {
+	if err := a.store.DeleteChirp(r.Context(), r.PathValue("id")); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("HX-Trigger", `{"notebird:feed-refresh":{},"notebird:chirp-deleted":{}}`)
+	a.execute(w, "chirp-detail", map[string]any{"Selected": Chirp{}})
 }
 
 func (a *App) handleDocs(w http.ResponseWriter, r *http.Request) {

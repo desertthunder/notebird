@@ -81,3 +81,47 @@ func TestStoreFieldsAndRefs(t *testing.T) {
 		t.Fatalf("expected mood deleted, got %#v", fields)
 	}
 }
+
+func TestStoreUpdateDeleteAndSuggestions(t *testing.T) {
+	ctx := context.Background()
+	store, err := OpenStore(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	c, err := store.CreateChirp(ctx, "Alpha", "Initial #one")
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := store.UpdateChirp(ctx, c.ID, "Beta", "Updated #two [[Alpha]]")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Title != "Beta" || updated.Text != "Updated #two [[Alpha]]" {
+		t.Fatalf("unexpected updated chirp: %#v", updated)
+	}
+
+	titles, err := store.SuggestTitles(ctx, "Bet", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(titles) != 1 || titles[0].ID != c.ID {
+		t.Fatalf("unexpected title suggestions: %#v", titles)
+	}
+
+	tags, err := store.SuggestTags(ctx, "tw", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tags) != 1 || tags[0] != "two" {
+		t.Fatalf("unexpected tag suggestions: %#v", tags)
+	}
+
+	if err := store.DeleteChirp(ctx, c.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.GetChirp(ctx, c.ID); err == nil {
+		t.Fatal("expected deleted chirp to be missing")
+	}
+}

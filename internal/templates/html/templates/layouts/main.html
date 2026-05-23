@@ -19,10 +19,10 @@
 			<h1>Home</h1>
 			<span class="timeline__badge">local</span>
 		</header>
-		{{template "composer" .}}
-    {{template "feed" .}}
+		{{template "chirp-create" .}}
+		{{template "chirp-list" .}}
 	</main>
 
-	{{template "detail" .}}
+	{{template "chirp-detail" .}}
 </div>
 {{end}}

@@ -28,6 +28,15 @@ paths:
               schema:
                 type: string
   /chirps:
+    get:
+      summary: Render feed fragment
+      responses:
+        '200':
+          description: Feed HTML fragment
+          content:
+            text/html:
+              schema:
+                type: string
     post:
       summary: Create a Chirp
       requestBody:
@@ -57,12 +66,7 @@ paths:
     get:
       summary: Render Chirp detail fragment
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-          description: Chirp ULID
+        - $ref: '#/components/parameters/ChirpID'
       responses:
         '200':
           description: Detail HTML fragment
@@ -72,6 +76,54 @@ paths:
                 type: string
         '404':
           description: Chirp not found
+    put:
+      summary: Update a Chirp
+      parameters:
+        - $ref: '#/components/parameters/ChirpID'
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                title:
+                  type: string
+                text:
+                  type: string
+      responses:
+        '200':
+          description: Updated detail HTML fragment
+          content:
+            text/html:
+              schema:
+                type: string
+        '400':
+          description: Invalid form data
+    delete:
+      summary: Delete a Chirp
+      parameters:
+        - $ref: '#/components/parameters/ChirpID'
+      responses:
+        '200':
+          description: Empty detail HTML fragment
+          content:
+            text/html:
+              schema:
+                type: string
+  /chirps/{id}/edit:
+    get:
+      summary: Render Chirp edit form fragment
+      parameters:
+        - $ref: '#/components/parameters/ChirpID'
+      responses:
+        '200':
+          description: Edit form HTML fragment
+          content:
+            text/html:
+              schema:
+                type: string
   /preview:
     post:
       summary: Render Markdown preview
@@ -93,6 +145,32 @@ paths:
             text/html:
               schema:
                 type: string
+  /suggest:
+    get:
+      summary: Suggest Chirp titles or tags for editor completion
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [chirp, tag]
+            default: chirp
+        - name: q
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Completion suggestions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Suggestion'
   /debug/config:
     get:
       summary: Show runtime config
@@ -134,7 +212,24 @@ paths:
               schema:
                 type: string
 components:
+  parameters:
+    ChirpID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Chirp ULID
   schemas:
+    Suggestion:
+      type: object
+      properties:
+        label:
+          type: string
+        value:
+          type: string
+        detail:
+          type: string
     Config:
       type: object
       properties:

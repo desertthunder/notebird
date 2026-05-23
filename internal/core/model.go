@@ -38,3 +38,10 @@ func NewConfig(h string, p int) Config {
 		Port: p,
 	}
 }
+
+func shortID(s string) string {
+	if len(s) <= 8 {
+		return s
+	}
+	return s[:8]
+}

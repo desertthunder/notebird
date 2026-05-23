@@ -3,15 +3,6 @@
 Build Notebird as a tiny local Go web app/daemon-ish server: a personal wiki with
 an old-school Twitter feel.
 
-## Editing Workflow
-
-- [ ] Add Chirp edit form
-- [ ] Save edits through HTMX
-- [ ] Delete Chirps through HTMX
-- [ ] Preserve selected Chirp state after updates
-- [ ] Add autosaved draft support
-- [ ] Add keyboard shortcuts for composer/search/navigation
-
 ## Search and Navigation
 
 - [ ] Add SQLite FTS5 table/index

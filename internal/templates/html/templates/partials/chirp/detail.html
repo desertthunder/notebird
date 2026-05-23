@@ -1,0 +1,69 @@
+{{define "chirp-detail"}}
+<aside id="detail" class="detail" aria-label="Selected Chirp" data-selected-chirp-id="{{.Selected.ID}}">
+	{{if .Selected.ID}}
+	<header class="detail__header">
+		<div>
+			<p class="eyebrow">Selected Chirp</p>
+			<h2>{{.Selected.Title}}</h2>
+			<span class="detail__meta">{{.Selected.ID}} · {{timeAgo .Selected.CreatedAt}}</span>
+		</div>
+	</header>
+	<div class="detail__body prose">{{safe .Selected.HTML}}</div>
+	<div class="detail__actions" aria-label="Chirp actions">
+		<button class="button button--quiet" type="button" hx-get="/chirps/{{.Selected.ID}}/edit" hx-target="#detail" hx-swap="outerHTML">
+			Edit
+		</button>
+		<button
+			class="button button--danger"
+			type="button"
+			hx-delete="/chirps/{{.Selected.ID}}"
+			hx-target="#detail"
+			hx-swap="outerHTML"
+			hx-confirm="Delete this Chirp?">
+			Delete
+		</button>
+	</div>
+	<section class="detail__section">
+		<h3>Outgoing refs</h3>
+		{{if .Selected.Refs}}
+		<ul class="ref-list">
+			{{range .Selected.Refs}}
+			<li>
+				{{if .Resolved}}
+				<a href="/chirps/{{.ToID}}" hx-get="/chirps/{{.ToID}}" hx-target="#detail" hx-swap="outerHTML"
+					>{{if .ToTitle}}{{.ToTitle}}{{else}}{{.RefText}}{{end}}</a
+				>
+				{{else}}
+				<span class="ref-list__missing">{{.RefText}}</span>
+				{{end}}
+			</li>
+			{{end}}
+		</ul>
+		{{else}}
+		<p>No outgoing refs yet.</p>
+		{{end}}
+	</section>
+	<section class="detail__section">
+		<h3>Backlinks</h3>
+		{{if .Selected.Backlinks}}
+		<ul class="ref-list">
+			{{range .Selected.Backlinks}}
+			<li>
+				<a href="/chirps/{{.FromID}}" hx-get="/chirps/{{.FromID}}" hx-target="#detail" hx-swap="outerHTML"
+					>{{.FromTitle}}</a
+				>
+			</li>
+			{{end}}
+		</ul>
+		{{else}}
+		<p>No backlinks yet.</p>
+		{{end}}
+	</section>
+	{{else}}
+	<article class="empty-state empty-state--detail">
+		<h2>No Chirp selected</h2>
+		<p>Choose a Chirp from the timeline to inspect its Markdown preview and refs.</p>
+	</article>
+	{{end}}
+</aside>
+{{end}}

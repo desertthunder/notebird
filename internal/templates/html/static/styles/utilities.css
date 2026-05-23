@@ -22,6 +22,21 @@
 
 .button:hover { background: linear-gradient(#38a8e4, var(--blue-5)); }
 
+.button--quiet {
+  border-color: var(--border);
+  color: var(--blue-6);
+  background: linear-gradient(var(--white), var(--gray-1));
+}
+
+.button--quiet:hover { background: var(--blue-1); }
+
+.button--danger {
+  border-color: #9f1239;
+  background: linear-gradient(#e11d48, #be123c);
+}
+
+.button--danger:hover { background: linear-gradient(#f43f5e, #be123c); }
+
 .tag {
   color: var(--accent-strong);
   font-weight: 700;

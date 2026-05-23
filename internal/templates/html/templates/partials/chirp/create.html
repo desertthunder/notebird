@@ -1,4 +1,4 @@
-{{define "composer"}}
+{{define "chirp-create"}}
 <section class="composer" x-data="{ text: '', title: '', tab: 'write' }" @notebird:chirp-created.window="text = ''; title = ''; tab = 'write'">
 	<form data-composer hx-post="/chirps" hx-target="#feed" hx-swap="outerHTML">
 		<input class="composer__title" name="title" type="text" placeholder="Title, optional" x-model="title" />
