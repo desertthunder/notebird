@@ -70,10 +70,15 @@ func (a *App) Serve(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
+		log.Info("shutdown requested")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = srv.Shutdown(shutdownCtx)
-		return ctx.Err()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			log.Error("graceful shutdown failed", "err", err)
+			return err
+		}
+		log.Info("server stopped")
+		return nil
 	case err := <-errc:
 		if err == http.ErrServerClosed {
 			return nil
