@@ -1,0 +1,16 @@
+{{define "base"}}
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Notebird</title>
+        <link rel="stylesheet" href="/static/styles/style.css" />
+        <script defer src="/static/vendor/alpine.min.js"></script>
+        <script defer src="/static/vendor/htmx.min.js"></script>
+    </head>
+    <body>
+        {{template "layout-main" .}}
+    </body>
+</html>
+{{end}}

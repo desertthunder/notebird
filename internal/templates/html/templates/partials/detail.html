@@ -1,0 +1,21 @@
+{{define "detail"}}
+<aside id="detail" class="detail" aria-label="Selected Chirp">
+	{{if .Selected.ID}}
+	<header class="detail__header">
+		<p class="eyebrow">Selected Chirp</p>
+		<h2>{{.Selected.Title}}</h2>
+		<span class="detail__meta">{{.Selected.ID}} · {{timeAgo .Selected.CreatedAt}}</span>
+	</header>
+	<div class="detail__body prose">{{safe .Selected.HTML}}</div>
+	<section class="detail__section">
+		<h3>Refs</h3>
+		<p>Wiki links and backlinks land here next.</p>
+	</section>
+	{{else}}
+	<article class="empty-state empty-state--detail">
+		<h2>No Chirp selected</h2>
+		<p>Choose a Chirp from the timeline to inspect its Markdown preview and refs.</p>
+	</article>
+	{{end}}
+</aside>
+{{end}}

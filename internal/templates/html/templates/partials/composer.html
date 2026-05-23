@@ -1,0 +1,18 @@
+{{define "composer"}}
+<section class="composer" x-data="{ text: '', title: '' }" @notebird:chirp-created.window="text = ''; title = ''">
+	<form hx-post="/chirps" hx-target="#feed" hx-swap="outerHTML">
+		<input class="composer__title" name="title" type="text" placeholder="Title, optional" x-model="title" />
+		<textarea
+			class="composer__text"
+			name="text"
+			rows="4"
+			placeholder="What are you noticing? Markdown and #tags work."
+			x-model="text"
+			required></textarea>
+		<div class="composer__bar">
+			<span class="composer__count" x-text="text.length + ' chars'">0 chars</span>
+			<button class="button" type="submit">Chirp</button>
+		</div>
+	</form>
+</section>
+{{end}}

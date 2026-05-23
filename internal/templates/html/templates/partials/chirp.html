@@ -1,0 +1,12 @@
+{{define "chirp"}}
+<article class="chirp" id="chirp-{{.ID}}" hx-get="/chirps/{{.ID}}" hx-target="#detail" hx-swap="outerHTML" tabindex="0">
+	<header class="chirp__header">
+		<h2>{{.Title}}</h2>
+		<span class="chirp__meta">{{shortID .ID}} · {{timeAgo .CreatedAt}}</span>
+	</header>
+	<div class="chirp__body">{{safe .HTML}}</div>
+	{{if .Tags}}
+	<footer class="chirp__tags">{{range .Tags}}<span class="tag">#{{.}}</span>{{end}}</footer>
+	{{end}}
+</article>
+{{end}}

@@ -1,0 +1,10 @@
+{{define "feed"}}
+<section id="feed" class="feed" aria-live="polite">
+	{{if .Chirps}} {{range .Chirps}}{{template "chirp" .}}{{end}} {{else}}
+	<article class="empty-state">
+		<h2>Your timeline is quiet.</h2>
+		<p>Write the first Chirp. Use Markdown, add #tags, and link notes later with wiki links.</p>
+	</article>
+	{{end}}
+</section>
+{{end}}
