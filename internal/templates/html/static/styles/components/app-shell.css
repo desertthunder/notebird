@@ -25,13 +25,14 @@
 .wordmark {
   display: inline-block;
   margin-bottom: var(--space-4);
-  color: var(--blue-6);
+  color: var(--blue-4);
   font-family: var(--font-wordmark);
   font-size: 2rem;
   font-weight: 700;
   line-height: 1;
   text-decoration: none;
-  letter-spacing: -0.04em;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 0 var(--white);
 }
 
 .nav-list {

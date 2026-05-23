@@ -100,6 +100,7 @@ func (a *App) routes() http.Handler {
 
 	mux.HandleFunc("GET /", a.handleHome)
 	mux.HandleFunc("POST /chirps", a.handleCreateChirp)
+	mux.HandleFunc("POST /preview", a.handlePreview)
 	mux.HandleFunc("GET /chirps/{id}", a.handleChirpDetail)
 
 	return a.requestLogger(mux)
@@ -139,6 +140,20 @@ func (a *App) handleCreateChirp(w http.ResponseWriter, r *http.Request) {
 	a.execute(w, "feed", map[string]any{"Chirps": chirps})
 }
 
+func (a *App) handlePreview(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	refs, err := a.store.ResolveTextRefs(r.Context(), r.FormValue("text"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(a.renderMarkdown(r.FormValue("text"), refs)))
+}
+
 func (a *App) handleChirpDetail(w http.ResponseWriter, r *http.Request) {
 	c, err := a.store.GetChirp(r.Context(), r.PathValue("id"))
 	if err != nil {
@@ -168,13 +183,16 @@ func (a *App) renderChirps(chirps []Chirp) {
 }
 
 func (a *App) renderChirp(c *Chirp) {
+	c.HTML = a.renderMarkdown(c.Text, c.Refs)
+}
+
+func (a *App) renderMarkdown(text string, refs []ChirpRef) string {
 	var buf bytes.Buffer
-	text := RenderWikiLinks(c.Text, c.Refs)
-	if err := a.markdown.Convert([]byte(text), &buf); err != nil {
-		c.HTML = template.HTMLEscapeString(c.Text)
-		return
+	linkedText := RenderWikiLinks(text, refs)
+	if err := a.markdown.Convert([]byte(linkedText), &buf); err != nil {
+		return template.HTMLEscapeString(text)
 	}
-	c.HTML = buf.String()
+	return buf.String()
 }
 
 func firstChirp(chirps []Chirp) Chirp {

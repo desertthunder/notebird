@@ -1,0 +1,30 @@
+root = "."
+tmp_dir = "tmp/air"
+
+[build]
+cmd = "just assets && go build -o ./tmp/notebird ./cmd/notebird"
+entrypoint = ["./tmp/notebird", "--data-dir", "./tmp/dev-data"]
+full_bin = ""
+include_ext = ["go", "html", "css", "js"]
+include_dir = ["cmd", "internal", "frontend/src"]
+exclude_dir = ["tmp", ".git", "frontend/node_modules", "internal/templates/html/static/dist"]
+exclude_file = []
+exclude_regex = [".*_test.go"]
+exclude_unchanged = true
+follow_symlink = false
+log = "air-build.log"
+send_interrupt = true
+kill_delay = "2s"
+stop_on_error = true
+
+[log]
+time = true
+
+[color]
+main = "cyan"
+watcher = "yellow"
+build = "green"
+runner = "magenta"
+
+[misc]
+clean_on_exit = true

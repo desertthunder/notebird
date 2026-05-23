@@ -1,14 +1,40 @@
 {{define "composer"}}
-<section class="composer" x-data="{ text: '', title: '' }" @notebird:chirp-created.window="text = ''; title = ''">
-	<form hx-post="/chirps" hx-target="#feed" hx-swap="outerHTML">
+<section class="composer" x-data="{ text: '', title: '', tab: 'write' }" @notebird:chirp-created.window="text = ''; title = ''; tab = 'write'">
+	<form data-composer hx-post="/chirps" hx-target="#feed" hx-swap="outerHTML">
 		<input class="composer__title" name="title" type="text" placeholder="Title, optional" x-model="title" />
-		<textarea
-			class="composer__text"
-			name="text"
-			rows="4"
-			placeholder="What are you noticing? Markdown and #tags work."
-			x-model="text"
-			required></textarea>
+		<div class="composer-tabs" role="tablist" aria-label="Composer mode">
+			<button
+				class="composer-tabs__tab"
+				:class="{ 'is-active': tab === 'write' }"
+				type="button"
+				role="tab"
+				:aria-selected="tab === 'write'"
+				@click="tab = 'write'">Write</button>
+			<button
+				class="composer-tabs__tab"
+				:class="{ 'is-active': tab === 'preview' }"
+				type="button"
+				role="tab"
+				:aria-selected="tab === 'preview'"
+				@click="tab = 'preview'">Preview</button>
+		</div>
+		<div class="composer-panels">
+			<div class="composer-panel" x-show="tab === 'write'" role="tabpanel">
+				<textarea
+					class="composer__text"
+					data-editor="markdown"
+					name="text"
+					rows="7"
+					placeholder="What are you noticing? Markdown, fenced code, wiki links, and #tags work."
+					x-model="text"
+					required></textarea>
+			</div>
+			<div class="composer-panel" x-show="tab === 'preview'" role="tabpanel" x-cloak>
+				<div class="composer-preview prose" data-composer-preview aria-live="polite">
+					<p class="composer-preview__placeholder">Preview appears here as you write.</p>
+				</div>
+			</div>
+		</div>
 		<div class="composer__bar">
 			<span class="composer__count" x-text="text.length + ' chars'">0 chars</span>
 			<button class="button" type="submit">Chirp</button>

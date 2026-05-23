@@ -32,6 +32,7 @@ go.work.sum
 # .vscode/
 .sandbox/
 tmp/
+frontend/node_modules/
 
 # Front-end
 node_modules/

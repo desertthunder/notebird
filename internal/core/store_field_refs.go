@@ -59,6 +59,18 @@ func (s *Store) ReplaceFields(ctx context.Context, chirpID string, fields map[st
 	return tx.Commit()
 }
 
+func (s *Store) ResolveTextRefs(ctx context.Context, text string) ([]ChirpRef, error) {
+	refs := make([]ChirpRef, 0)
+	for _, link := range ParseWikiLinks(text) {
+		toID, resolved, err := s.resolveTitle(ctx, s.db, link.Target)
+		if err != nil {
+			return nil, err
+		}
+		refs = append(refs, ChirpRef{ToID: toID, RefText: link.Target, Resolved: resolved})
+	}
+	return refs, nil
+}
+
 func (s *Store) replaceRefs(ctx context.Context, tx txer, chirpID, text string) error {
 	if _, err := tx.ExecContext(ctx, `delete from chirp_refs where from_chirp_id = ?`, chirpID); err != nil {
 		return err
