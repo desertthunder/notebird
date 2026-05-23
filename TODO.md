@@ -3,16 +3,6 @@
 Build Notebird as a tiny local Go web app/daemon-ish server: a personal wiki with
 an old-school Twitter feel.
 
-## Core Chirp Model
-
-- [ ] Keep ULID as the canonical Chirp identity
-- [ ] Add EAV-backed `chirp_fields` repository methods
-- [ ] Parse `[[Title]]` wiki links from Markdown
-- [ ] Resolve wiki links to Chirp ULIDs when possible
-- [ ] Store unresolved refs as wanted/missing links
-- [ ] Add backlinks and outgoing refs queries
-- [ ] Render wiki links as local HTMX links
-
 ## Editing Workflow
 
 - [ ] Add Chirp edit form

@@ -15,6 +15,7 @@ import (
 	tmplfs "github.com/desertthunder/notebird/internal/templates/html"
 	"github.com/desertthunder/notebird/internal/utils"
 	"github.com/yuin/goldmark"
+	ghtml "github.com/yuin/goldmark/renderer/html"
 )
 
 type App struct {
@@ -50,7 +51,7 @@ func New(cfg Config) (*App, error) {
 		return nil, err
 	}
 
-	return &App{cfg: cfg, store: store, templates: tmpl, markdown: goldmark.New()}, nil
+	return &App{cfg: cfg, store: store, templates: tmpl, markdown: goldmark.New(goldmark.WithRendererOptions(ghtml.WithUnsafe()))}, nil
 }
 
 func (a *App) Close() error { return a.store.Close() }
@@ -168,7 +169,8 @@ func (a *App) renderChirps(chirps []Chirp) {
 
 func (a *App) renderChirp(c *Chirp) {
 	var buf bytes.Buffer
-	if err := a.markdown.Convert([]byte(c.Text), &buf); err != nil {
+	text := RenderWikiLinks(c.Text, c.Refs)
+	if err := a.markdown.Convert([]byte(text), &buf); err != nil {
 		c.HTML = template.HTMLEscapeString(c.Text)
 		return
 	}

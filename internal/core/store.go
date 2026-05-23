@@ -65,11 +65,16 @@ func (s *Store) migrate(ctx context.Context) error {
 
         create table if not exists chirp_refs (
             from_chirp_id text not null references chirps(id) on delete cascade,
-            to_chirp_id text,
+            to_chirp_id text references chirps(id) on delete set null,
             ref_text text not null,
             resolved integer not null default 0,
             primary key (from_chirp_id, ref_text)
         );
+
+        create index if not exists chirps_title_idx on chirps(title);
+        create index if not exists chirps_title_nocase_idx on chirps(title collate nocase);
+        create index if not exists chirp_refs_to_idx on chirp_refs(to_chirp_id);
+        create index if not exists chirp_refs_missing_idx on chirp_refs(ref_text) where resolved = 0;
     `)
 	return err
 }
@@ -111,6 +116,12 @@ func (s *Store) CreateChirp(ctx context.Context, title, text string) (Chirp, err
 			return Chirp{}, err
 		}
 	}
+	if err := s.replaceRefs(ctx, tx, c.ID, c.Text); err != nil {
+		return Chirp{}, err
+	}
+	if _, err := tx.ExecContext(ctx, `update chirp_refs set to_chirp_id = ?, resolved = 1 where resolved = 0 and ref_text = ? collate nocase`, c.ID, c.Title); err != nil {
+		return Chirp{}, err
+	}
 	if err := tx.Commit(); err != nil {
 		return Chirp{}, err
 	}
@@ -134,6 +145,8 @@ func (s *Store) ListChirps(ctx context.Context, limit int) ([]Chirp, error) {
 			return nil, err
 		}
 		c.Tags, _ = s.tags(ctx, c.ID)
+		c.Refs, _ = s.OutgoingRefs(ctx, c.ID)
+		c.Fields, _ = s.Fields(ctx, c.ID)
 		chirps = append(chirps, c)
 	}
 	return chirps, rows.Err()
@@ -146,6 +159,9 @@ func (s *Store) GetChirp(ctx context.Context, id string) (Chirp, error) {
 		return Chirp{}, err
 	}
 	c.Tags, _ = s.tags(ctx, c.ID)
+	c.Refs, _ = s.OutgoingRefs(ctx, c.ID)
+	c.Backlinks, _ = s.Backlinks(ctx, c.ID)
+	c.Fields, _ = s.Fields(ctx, c.ID)
 	return c, nil
 }
 

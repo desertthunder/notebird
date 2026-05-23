@@ -8,9 +8,22 @@ type Chirp struct {
 	Text      string
 	Type      string
 	Tags      []string
+	Refs      []ChirpRef
+	Backlinks []ChirpRef
+	Fields    map[string]string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	HTML      string
+}
+
+type ChirpRef struct {
+	FromID     string
+	ToID       string
+	RefText    string
+	Resolved   bool
+	FromTitle  string
+	ToTitle    string
+	CreatedFor string
 }
 
 type Config struct {

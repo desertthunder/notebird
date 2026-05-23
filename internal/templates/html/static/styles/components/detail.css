@@ -60,6 +60,31 @@
   margin-bottom: var(--space-2);
 }
 
+.ref-list {
+  display: grid;
+  gap: var(--space-1);
+  list-style: none;
+  padding: 0;
+}
+
+.ref-list a,
+.wiki-link {
+  color: var(--accent-strong);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.ref-list a:hover,
+.wiki-link:hover {
+  text-decoration: underline;
+}
+
+.ref-list__missing,
+.wiki-link--missing {
+  color: #b86b00;
+  font-weight: 700;
+}
+
 .empty-state--detail {
   min-height: 14rem;
   align-content: center;

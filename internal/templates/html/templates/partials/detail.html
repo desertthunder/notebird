@@ -8,8 +8,34 @@
 	</header>
 	<div class="detail__body prose">{{safe .Selected.HTML}}</div>
 	<section class="detail__section">
-		<h3>Refs</h3>
-		<p>Wiki links and backlinks land here next.</p>
+		<h3>Outgoing refs</h3>
+		{{if .Selected.Refs}}
+		<ul class="ref-list">
+			{{range .Selected.Refs}}
+			<li>
+				{{if .Resolved}}
+				<a href="/chirps/{{.ToID}}" hx-get="/chirps/{{.ToID}}" hx-target="#detail" hx-swap="outerHTML">{{if .ToTitle}}{{.ToTitle}}{{else}}{{.RefText}}{{end}}</a>
+				{{else}}
+				<span class="ref-list__missing">{{.RefText}}</span>
+				{{end}}
+			</li>
+			{{end}}
+		</ul>
+		{{else}}
+		<p>No outgoing refs yet.</p>
+		{{end}}
+	</section>
+	<section class="detail__section">
+		<h3>Backlinks</h3>
+		{{if .Selected.Backlinks}}
+		<ul class="ref-list">
+			{{range .Selected.Backlinks}}
+			<li><a href="/chirps/{{.FromID}}" hx-get="/chirps/{{.FromID}}" hx-target="#detail" hx-swap="outerHTML">{{.FromTitle}}</a></li>
+			{{end}}
+		</ul>
+		{{else}}
+		<p>No backlinks yet.</p>
+		{{end}}
 	</section>
 	{{else}}
 	<article class="empty-state empty-state--detail">
