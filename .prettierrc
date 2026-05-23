@@ -1,5 +1,1 @@
-{
-	"useTabs": true,
-	"bracketSameLine": true,
-	"printWidth": 120
-}
+{ "useTabs": true, "bracketSameLine": true, "printWidth": 120, "objectWrap": "collapse" }
