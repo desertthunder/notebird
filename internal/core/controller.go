@@ -16,15 +16,24 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
+// NoticeType identifies the frontend notification variant to render.
+type NoticeType string
+
+const (
+	NoticeSuccess NoticeType = "success"
+	NoticeError   NoticeType = "error"
+	NoticeInfo    NoticeType = "info"
+)
+
 // struct Notice is a UI notification delivered through HTMX events.
 type Notice struct {
-	Type    string `json:"type"`
-	Title   string `json:"title"`
-	Message string `json:"message"`
+	Type    NoticeType `json:"type"`
+	Title   string     `json:"title"`
+	Message string     `json:"message"`
 }
 
-func notice(t, title, m string) Notice {
-	return Notice{Type: t, Title: title, Message: m}
+func notice(ty NoticeType, t, m string) Notice {
+	return Notice{Type: ty, Title: t, Message: m}
 }
 
 // controller groups request handlers and rendering helpers for the web UI.
@@ -143,7 +152,7 @@ func (ctl *controller) handleCreateChirp(w http.ResponseWriter, r *http.Request)
 	ctl.hx(w, map[string]any{
 		"notebird:chirp-created": map[string]string{"id": created.ID},
 		"notebird:nav-refresh":   map[string]any{},
-		"notebird:notice":        notice("success", "Chirp posted", "Your note is now in the timeline."),
+		"notebird:notice":        notice(NoticeSuccess, "Chirp posted", "Your note is now in the timeline."),
 	})
 	ctl.execute(w, "chirp-list", map[string]any{"Chirps": chirps})
 }
@@ -279,7 +288,7 @@ func (ctl *controller) handleUpdateChirp(w http.ResponseWriter, r *http.Request)
 	ctl.hx(w, map[string]any{
 		"notebird:feed-refresh": map[string]any{},
 		"notebird:nav-refresh":  map[string]any{},
-		"notebird:notice":       notice("success", "Chirp saved", "Changes were written locally."),
+		"notebird:notice":       notice(NoticeSuccess, "Chirp updated", "Changes were saved."),
 	})
 	w.Header().Set("HX-Push-Url", "/chirps/"+c.ID)
 	ctl.execute(w, "chirp-create", map[string]any{"CreateForm": ctl.newCreateForm(r.Context())})
@@ -293,7 +302,7 @@ func (ctl *controller) handleDeleteChirp(w http.ResponseWriter, r *http.Request)
 	ctl.hx(w, map[string]any{
 		"notebird:feed-refresh": map[string]any{},
 		"notebird:nav-refresh":  map[string]any{},
-		"notebird:notice":       notice("success", "Chirp deleted", "The note was removed."),
+		"notebird:notice":       notice(NoticeSuccess, "Chirp deleted", "The note was removed."),
 	})
 	ctl.execute(w, "chirp-detail", map[string]any{"Selected": Chirp{}})
 }
@@ -319,7 +328,7 @@ func (ctl *controller) handleUploadDraftAttachment(w http.ResponseWriter, r *htt
 		return
 	}
 	ctl.hx(w, map[string]any{
-		"notebird:notice": notice("success", "Attachment staged", "The file will be linked when you post the Chirp."),
+		"notebird:notice": notice(NoticeSuccess, "Attachment staged", "The file will be linked when you post the Chirp."),
 	})
 	ctl.executePartial(w, r, "draft-attachments", map[string]any{"DraftID": r.PathValue("id"), "Attachments": attachments})
 }
@@ -348,7 +357,7 @@ func (ctl *controller) handleUploadAttachment(w http.ResponseWriter, r *http.Req
 	ctl.renderChirp(&chirp)
 	ctl.hx(w, map[string]any{
 		"notebird:feed-refresh": map[string]any{},
-		"notebird:notice":       notice("success", "Attachment added", "The file is now linked to this Chirp."),
+		"notebird:notice":       notice(NoticeSuccess, "Attachment added", "The file is now linked to this Chirp."),
 	})
 	ctl.executePartial(w, r, "chirp-detail", map[string]any{"Selected": chirp})
 }
@@ -404,7 +413,7 @@ func (ctl *controller) handleUpdateSettings(w http.ResponseWriter, r *http.Reque
 	}
 	ctl.hx(w, map[string]any{
 		"notebird:settings-saved": map[string]any{},
-		"notebird:notice":         notice("success", "Settings saved", "Composer preferences updated."),
+		"notebird:notice":         notice(NoticeSuccess, "Settings saved", "Composer preferences updated."),
 	})
 	ctl.executePartial(w, r, "settings-panel", map[string]any{"Settings": settings})
 }
@@ -441,7 +450,7 @@ func (ctl *controller) hx(w http.ResponseWriter, events map[string]any) {
 
 func (ctl *controller) fail(w http.ResponseWriter, message string, status int) {
 	ctl.hx(w, map[string]any{
-		"notebird:notice": notice("error", http.StatusText(status), message),
+		"notebird:notice": notice(NoticeError, http.StatusText(status), message),
 	})
 	http.Error(w, message, status)
 }
@@ -526,8 +535,8 @@ func (ctl *controller) newCreateForm(ctx context.Context) ChirpForm {
 		SubmitLabel:      "Chirp",
 		Heading:          "New Chirp",
 		Draft:            true,
-		TitlePlaceholder: "Title, optional",
-		TextPlaceholder:  "What are you noticing? Markdown, fenced code, wiki links, and #tags work.",
+		TitlePlaceholder: "Title (optional)",
+		TextPlaceholder:  "What's on your mind?",
 		DraftID:          ulid.Make().String(),
 		Settings:         ctl.settings(ctx),
 	}
@@ -543,7 +552,7 @@ func (ctl *controller) newUpdateForm(ctx context.Context, c Chirp) ChirpForm {
 		Draft:            false,
 		ShowCancel:       true,
 		TitlePlaceholder: "Title",
-		TextPlaceholder:  "Markdown",
+		TextPlaceholder:  "Your thoughts..?",
 		TagValue:         strings.Join(c.Tags, ", "),
 		Settings:         ctl.settings(ctx),
 	}
