@@ -1,15 +1,12 @@
 package core
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"expvar"
 	"fmt"
 	"html/template"
 	"io/fs"
 	"net/http"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -20,6 +17,8 @@ import (
 	ghtml "github.com/yuin/goldmark/renderer/html"
 )
 
+// struct App owns application related state, dependencies, and server lifecycle.
+// Request handling is delegated to an internal controller created by router.
 type App struct {
 	cfg            Config
 	store          *Store
@@ -28,6 +27,7 @@ type App struct {
 	lastTemplateMS atomic.Uint64
 }
 
+// PageData is the view model passed to full-page HTML templates.
 type PageData struct {
 	Chirps      []Chirp
 	Selected    Chirp
@@ -39,6 +39,7 @@ type PageData struct {
 	CurrentYear int
 }
 
+// New opens application storage, parses embedded templates, and prepares markdown rendering.
 func New(cfg Config) (*App, error) {
 	store, err := OpenStore(context.Background(), cfg.DataDir)
 	if err != nil {
@@ -64,12 +65,14 @@ func New(cfg Config) (*App, error) {
 	return &App{cfg: cfg, store: store, templates: tmpl, markdown: goldmark.New(goldmark.WithRendererOptions(ghtml.WithUnsafe()))}, nil
 }
 
+// Close releases resources owned by the application.
 func (a *App) Close() error { return a.store.Close() }
 
+// Serve starts the HTTP server and shuts it down when ctx is canceled.
 func (a *App) Serve(ctx context.Context) error {
 	srv := &http.Server{
 		Addr:              fmt.Sprintf("%s:%d", a.cfg.Host, a.cfg.Port),
-		Handler:           a.routes(),
+		Handler:           a.router(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -98,399 +101,41 @@ func (a *App) Serve(ctx context.Context) error {
 	}
 }
 
-func (a *App) routes() http.Handler {
+// router wires HTTP routes to the internal controller and returns the root handler.
+//
+// `/x/` routes serve HTML fragments/partials for client-side navigation,
+// while other routes serve full pages or APIs.
+func (a *App) router() http.Handler {
 	mux := http.NewServeMux()
+	c := newController(a)
 
 	staticFS, _ := fs.Sub(tmplfs.Assets, "static")
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok\n")) })
-	mux.HandleFunc("GET /debug/config", a.handleConfig)
+	mux.HandleFunc("GET /debug/config", c.handleConfig)
 	mux.Handle("GET /debug/vars", expvar.Handler())
-	mux.HandleFunc("GET /docs", a.handleDocs)
-	mux.HandleFunc("GET /openapi.yaml", a.handleOpenAPI)
+	mux.HandleFunc("GET /docs", c.handleDocs)
+	mux.HandleFunc("GET /openapi.yaml", c.handleOpenAPI)
 
-	mux.HandleFunc("GET /", a.handleHome)
-	mux.HandleFunc("GET /x/nav", a.handleNav)
-	mux.HandleFunc("GET /x/composer", a.handleComposerPartial)
-	mux.HandleFunc("GET /x/chirps", a.handleFeedPartial)
-	mux.HandleFunc("GET /x/chirps/{id}", a.handleChirpDetailPartial)
-	mux.HandleFunc("GET /x/chirps/{id}/edit", a.handleEditChirpPartial)
-	mux.HandleFunc("GET /chirps", a.handleFeed)
-	mux.HandleFunc("POST /chirps", a.handleCreateChirp)
-	mux.HandleFunc("POST /preview", a.handlePreview)
-	mux.HandleFunc("GET /suggest", a.handleSuggest)
-	mux.HandleFunc("GET /chirps/{id}", a.handleChirpDetail)
-	mux.HandleFunc("GET /chirps/{id}/edit", a.handleEditChirp)
-	mux.HandleFunc("PUT /chirps/{id}", a.handleUpdateChirp)
-	mux.HandleFunc("DELETE /chirps/{id}", a.handleDeleteChirp)
+	mux.HandleFunc("GET /", c.handleHome)
+
+	mux.HandleFunc("GET /x/nav", c.handleNav)
+	mux.HandleFunc("GET /x/composer", c.handleComposerPartial)
+	mux.HandleFunc("GET /x/chirps", c.handleFeedPartial)
+	mux.HandleFunc("GET /x/chirps/{id}", c.handleChirpDetailPartial)
+	mux.HandleFunc("GET /x/chirps/{id}/edit", c.handleEditChirpPartial)
+
+	mux.HandleFunc("GET /chirps", c.handleFeed)
+	mux.HandleFunc("POST /chirps", c.handleCreateChirp)
+	mux.HandleFunc("POST /preview", c.handlePreview)
+	mux.HandleFunc("GET /suggest", c.handleSuggest)
+	mux.HandleFunc("GET /chirps/{id}", c.handleChirpDetail)
+	mux.HandleFunc("GET /chirps/{id}/edit", c.handleEditChirp)
+	mux.HandleFunc("PUT /chirps/{id}", c.handleUpdateChirp)
+	mux.HandleFunc("DELETE /chirps/{id}", c.handleDeleteChirp)
 
 	return a.requestLogger(mux)
-}
-
-func (a *App) handleHome(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
-	filter := feedFilterFromRequest(r)
-	chirps, err := a.store.ListChirpsFiltered(r.Context(), filter, 50)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	a.renderChirps(chirps)
-	tags, _ := a.store.TagCounts(r.Context(), 50)
-	wanted, _ := a.store.WantedRefs(r.Context())
-	data := PageData{
-		Chirps:      chirps,
-		Selected:    Chirp{},
-		CreateForm:  newCreateForm(),
-		Tags:        tags,
-		WantedRefs:  wanted,
-		Filter:      filter,
-		Metrics:     pageMetricsSince(start, a.recentTemplateMS()),
-		CurrentYear: time.Now().Year(),
-	}
-	a.execute(w, "base", data)
-}
-
-func (a *App) handleComposerPartial(w http.ResponseWriter, r *http.Request) {
-	a.executePartial(w, r, "chirp-create", map[string]any{"CreateForm": newCreateForm()})
-}
-
-func (a *App) handleNav(w http.ResponseWriter, r *http.Request) {
-	tags, err := a.store.TagCounts(r.Context(), 50)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	wanted, err := a.store.WantedRefs(r.Context())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	a.executePartial(w, r, "sidebar", map[string]any{"Tags": tags, "WantedRefs": wanted, "Filter": feedFilterFromRequest(r)})
-}
-
-func (a *App) handleFeed(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
-	filter := feedFilterFromRequest(r)
-	chirps, err := a.store.ListChirpsFiltered(r.Context(), filter, 50)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	a.renderChirps(chirps)
-	tags, _ := a.store.TagCounts(r.Context(), 50)
-	wanted, _ := a.store.WantedRefs(r.Context())
-	a.execute(w, "base", PageData{Chirps: chirps, CreateForm: newCreateForm(), Tags: tags, WantedRefs: wanted, Filter: filter, Metrics: pageMetricsSince(start, a.recentTemplateMS()), CurrentYear: time.Now().Year()})
-}
-
-func (a *App) handleFeedPartial(w http.ResponseWriter, r *http.Request) {
-	filter := feedFilterFromRequest(r)
-	chirps, err := a.store.ListChirpsFiltered(r.Context(), filter, 50)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	a.renderChirps(chirps)
-	w.Header().Set("HX-Push-Url", publicChirpsURL(r))
-	a.executePartial(w, r, "chirp-list", map[string]any{"Chirps": chirps, "Filter": filter})
-}
-
-// TODO: these could become an internal Controller-like struct or interface.
-func (a *App) handleCreateChirp(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	created, err := a.store.CreateChirp(r.Context(), r.FormValue("title"), r.FormValue("text"), r.FormValue("tags"))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	chirps, err := a.store.ListChirps(r.Context(), 50)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	a.renderChirps(chirps)
-	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"notebird:chirp-created":{"id":"%s"},"notebird:nav-refresh":{}}`, created.ID))
-	a.execute(w, "chirp-list", map[string]any{"Chirps": chirps})
-}
-
-func (a *App) handlePreview(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	refs, err := a.store.ResolveTextRefs(r.Context(), r.FormValue("text"))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(a.renderMarkdown(r.FormValue("text"), refs)))
-}
-
-func (a *App) handleSuggest(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	kind := r.URL.Query().Get("type")
-	q := r.URL.Query().Get("q")
-	switch kind {
-	case "tag":
-		tags, err := a.store.SuggestTags(r.Context(), q, 10)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		items := make([]map[string]string, 0, len(tags))
-		for _, tag := range tags {
-			items = append(items, map[string]string{"label": "#" + tag, "value": "#" + tag, "detail": "tag"})
-		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"items": items})
-	default:
-		chirps, err := a.store.SuggestTitles(r.Context(), q, 10)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		wanted, err := a.store.SuggestWantedRefs(r.Context(), q, 10)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		items := make([]map[string]string, 0, len(chirps)+len(wanted))
-		seen := map[string]bool{}
-		for _, chirp := range chirps {
-			seen[chirp.Title] = true
-			items = append(items, map[string]string{"label": chirp.Title, "value": chirp.Title, "detail": shortID(chirp.ID)})
-		}
-		for _, ref := range wanted {
-			if seen[ref.RefText] {
-				continue
-			}
-			items = append(items, map[string]string{"label": ref.RefText, "value": ref.RefText, "detail": "wanted link"})
-		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"items": items})
-	}
-}
-
-func (a *App) handleChirpDetail(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
-	c, err := a.store.GetChirp(r.Context(), r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "chirp not found", http.StatusNotFound)
-		return
-	}
-	a.renderChirp(&c)
-	filter := feedFilterFromRequest(r)
-	chirps, err := a.store.ListChirpsFiltered(r.Context(), filter, 50)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	a.renderChirps(chirps)
-	tags, _ := a.store.TagCounts(r.Context(), 50)
-	wanted, _ := a.store.WantedRefs(r.Context())
-	a.execute(w, "base", PageData{Chirps: chirps, Selected: c, CreateForm: newCreateForm(), Tags: tags, WantedRefs: wanted, Filter: filter, Metrics: pageMetricsSince(start, a.recentTemplateMS()), CurrentYear: time.Now().Year()})
-}
-
-func (a *App) handleChirpDetailPartial(w http.ResponseWriter, r *http.Request) {
-	c, err := a.store.GetChirp(r.Context(), r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "chirp not found", http.StatusNotFound)
-		return
-	}
-	a.renderChirp(&c)
-	w.Header().Set("HX-Push-Url", "/chirps/"+c.ID)
-	a.executePartial(w, r, "chirp-detail", map[string]any{"Selected": c})
-}
-
-func (a *App) handleEditChirp(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
-	c, err := a.store.GetChirp(r.Context(), r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "chirp not found", http.StatusNotFound)
-		return
-	}
-	a.renderChirp(&c)
-	chirps, err := a.store.ListChirps(r.Context(), 50)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	a.renderChirps(chirps)
-	tags, _ := a.store.TagCounts(r.Context(), 50)
-	wanted, _ := a.store.WantedRefs(r.Context())
-	a.execute(w, "base", PageData{Chirps: chirps, Selected: c, CreateForm: newUpdateForm(c), Tags: tags, WantedRefs: wanted, Filter: FeedFilter{Mode: "timeline"}, Metrics: pageMetricsSince(start, a.recentTemplateMS()), CurrentYear: time.Now().Year()})
-}
-
-func (a *App) handleEditChirpPartial(w http.ResponseWriter, r *http.Request) {
-	c, err := a.store.GetChirp(r.Context(), r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "chirp not found", http.StatusNotFound)
-		return
-	}
-	w.Header().Set("HX-Push-Url", "/chirps/"+c.ID+"/edit")
-	a.executePartial(w, r, "chirp-update", map[string]any{"Selected": c, "Form": newUpdateForm(c)})
-}
-
-func (a *App) handleUpdateChirp(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	c, err := a.store.UpdateChirp(r.Context(), r.PathValue("id"), r.FormValue("title"), r.FormValue("text"), r.FormValue("tags"))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	a.renderChirp(&c)
-	w.Header().Set("HX-Trigger", `{"notebird:feed-refresh":{},"notebird:nav-refresh":{},"notebird:chirp-saved":{}}`)
-	w.Header().Set("HX-Push-Url", "/chirps/"+c.ID)
-	a.execute(w, "chirp-create", map[string]any{"CreateForm": newCreateForm()})
-}
-
-func (a *App) handleDeleteChirp(w http.ResponseWriter, r *http.Request) {
-	if err := a.store.DeleteChirp(r.Context(), r.PathValue("id")); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("HX-Trigger", `{"notebird:feed-refresh":{},"notebird:nav-refresh":{},"notebird:chirp-deleted":{}}`)
-	a.execute(w, "chirp-detail", map[string]any{"Selected": Chirp{}})
-}
-
-func (a *App) handleDocs(w http.ResponseWriter, r *http.Request) {
-	a.execute(w, "docs", nil)
-}
-
-func (a *App) handleOpenAPI(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/yaml; charset=utf-8")
-	file, err := tmplfs.Assets.ReadFile("static/openapi.yaml")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.Write(file)
-}
-
-func (a *App) handleConfig(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(a.cfg)
-}
-
-func (a *App) execute(w http.ResponseWriter, name string, data any) {
-	start := time.Now()
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := a.templates.ExecuteTemplate(w, name, data); err != nil {
-		log.Error("template render failed", "template", name, "err", err)
-	}
-	a.lastTemplateMS.Store(uint64(time.Since(start).Microseconds()))
-}
-
-func (a *App) executePartial(w http.ResponseWriter, r *http.Request, name string, data any) {
-	if !wantsJSON(r) {
-		a.execute(w, name, data)
-		return
-	}
-	start := time.Now()
-	var buf bytes.Buffer
-	if err := a.templates.ExecuteTemplate(&buf, name, data); err != nil {
-		log.Error("template render failed", "template", name, "err", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	a.lastTemplateMS.Store(uint64(time.Since(start).Microseconds()))
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_ = json.NewEncoder(w).Encode(map[string]any{"template": name, "html": buf.String(), "data": data})
-}
-
-func (a *App) recentTemplateMS() float64 {
-	return float64(a.lastTemplateMS.Load()) / 1000
-}
-
-func (a *App) renderChirps(chirps []Chirp) {
-	for i := range chirps {
-		a.renderChirpPreview(&chirps[i])
-	}
-}
-
-func (a *App) renderChirp(c *Chirp) {
-	c.HTML = a.renderMarkdown(c.Text, c.Refs)
-}
-
-func (a *App) renderChirpPreview(c *Chirp) {
-	c.HTML = a.renderMarkdown(truncateText(c.Text, 320), c.Refs)
-}
-
-func (a *App) renderMarkdown(text string, refs []ChirpRef) string {
-	var buf bytes.Buffer
-	linkedText := RenderWikiLinks(text, refs)
-	if err := a.markdown.Convert([]byte(linkedText), &buf); err != nil {
-		return template.HTMLEscapeString(text)
-	}
-	return buf.String()
-}
-
-func truncateText(text string, limit int) string {
-	runes := []rune(strings.TrimSpace(text))
-	if len(runes) <= limit {
-		return string(runes)
-	}
-	return string(runes[:limit]) + "…"
-}
-
-func newCreateForm() ChirpForm {
-	return ChirpForm{
-		Action:           "/chirps",
-		Method:           "post",
-		SubmitLabel:      "Chirp",
-		Heading:          "New Chirp",
-		Draft:            true,
-		TitlePlaceholder: "Title, optional",
-		TextPlaceholder:  "What are you noticing? Markdown, fenced code, wiki links, and #tags work.",
-	}
-}
-
-func newUpdateForm(c Chirp) ChirpForm {
-	return ChirpForm{
-		Chirp:            c,
-		Action:           "/chirps/" + c.ID,
-		Method:           "put",
-		SubmitLabel:      "Save",
-		Heading:          "Editing Chirp",
-		Draft:            false,
-		ShowCancel:       true,
-		TitlePlaceholder: "Title",
-		TextPlaceholder:  "Markdown",
-		TagValue:         strings.Join(c.Tags, ", "),
-	}
-}
-
-func feedFilterFromRequest(r *http.Request) FeedFilter {
-	q := r.URL.Query()
-	filter := FeedFilter{
-		Query: q.Get("q"),
-		Tag:   q.Get("tag"),
-		Mode:  q.Get("mode"),
-	}
-	if filter.Mode == "" {
-		filter.Mode = "timeline"
-	}
-	return filter
-}
-
-func publicChirpsURL(r *http.Request) string {
-	q := r.URL.Query()
-	q.Del("json")
-	if q.Encode() == "" {
-		return "/chirps"
-	}
-	return "/chirps?" + q.Encode()
-}
-
-func wantsJSON(r *http.Request) bool {
-	value := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("json")))
-	return value == "1" || value == "true" || value == "yes"
 }
 
 func (a *App) requestLogger(next http.Handler) http.Handler {
