@@ -2,9 +2,8 @@
   position: sticky;
   top: var(--space-4);
   align-self: start;
-  display: grid;
-  grid-template-rows: auto minmax(10rem, auto) auto auto auto;
   max-height: calc(100vh - 7.5rem);
+  overflow: auto;
 }
 
 .detail__header {
@@ -34,13 +33,12 @@
   color: var(--muted);
   font-family: var(--font-mono);
   font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
 
 .detail__body {
   min-height: 10rem;
-  max-height: min(34rem, calc(100vh - 22rem));
-  overflow: auto;
   padding: var(--space-4);
 }
 
@@ -99,11 +97,33 @@
   gap: var(--space-2);
 }
 
+.attachment-upload-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.attachment-upload-form .button {
+  justify-self: end;
+}
+
 .attachment-list__image {
   display: block;
   max-width: 100%;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  outline: 1px solid rgb(41 47 51 / 0.08);
+}
+
+@media (max-width: 640px) {
+  .attachment-upload-form {
+    grid-template-columns: 1fr;
+  }
+
+  .attachment-upload-form .button {
+    justify-self: end;
+  }
 }
 
 .ref-list {
@@ -123,6 +143,11 @@
 .ref-list a:hover,
 .wiki-link:hover {
   text-decoration: underline;
+}
+
+.ref-list a:active,
+.wiki-link:active {
+  color: var(--blue-6);
 }
 
 .ref-list__missing,

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"net/http"
 	"os"
@@ -16,6 +15,17 @@ import (
 	tmplfs "github.com/desertthunder/notebird/internal/templates/html"
 	"github.com/oklog/ulid/v2"
 )
+
+// struct Notice is a UI notification delivered through HTMX events.
+type Notice struct {
+	Type    string `json:"type"`
+	Title   string `json:"title"`
+	Message string `json:"message"`
+}
+
+func notice(t, title, m string) Notice {
+	return Notice{Type: t, Title: title, Message: m}
+}
 
 // controller groups request handlers and rendering helpers for the web UI.
 // It is intentionally concrete and package-private: App owns the dependencies,
@@ -46,7 +56,7 @@ func (ctl *controller) handleHome(w http.ResponseWriter, r *http.Request) {
 	filter := feedFilterFromRequest(r)
 	chirps, err := ctl.store.ListChirpsFiltered(r.Context(), filter, 50)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ctl.fail(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	ctl.renderChirps(chirps)
@@ -73,12 +83,12 @@ func (ctl *controller) handleComposerPartial(w http.ResponseWriter, r *http.Requ
 func (ctl *controller) handleNav(w http.ResponseWriter, r *http.Request) {
 	tags, err := ctl.store.TagCounts(r.Context(), 50)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ctl.fail(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	wanted, err := ctl.store.WantedRefs(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ctl.fail(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	ctl.executePartial(w, r, "sidebar", map[string]any{"Tags": tags, "WantedRefs": wanted, "Filter": feedFilterFromRequest(r)})
@@ -89,7 +99,7 @@ func (ctl *controller) handleFeed(w http.ResponseWriter, r *http.Request) {
 	filter := feedFilterFromRequest(r)
 	chirps, err := ctl.store.ListChirpsFiltered(r.Context(), filter, 50)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ctl.fail(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	ctl.renderChirps(chirps)
@@ -102,7 +112,7 @@ func (ctl *controller) handleFeedPartial(w http.ResponseWriter, r *http.Request)
 	filter := feedFilterFromRequest(r)
 	chirps, err := ctl.store.ListChirpsFiltered(r.Context(), filter, 50)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ctl.fail(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	ctl.renderChirps(chirps)
@@ -112,36 +122,40 @@ func (ctl *controller) handleFeedPartial(w http.ResponseWriter, r *http.Request)
 
 func (ctl *controller) handleCreateChirp(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ctl.fail(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	created, err := ctl.store.CreateChirp(r.Context(), r.FormValue("title"), r.FormValue("text"), r.FormValue("tags"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ctl.fail(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if err := ctl.store.PromoteDraftAttachments(r.Context(), r.FormValue("draft_id"), created.ID); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ctl.fail(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	chirps, err := ctl.store.ListChirps(r.Context(), 50)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ctl.fail(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	ctl.renderChirps(chirps)
-	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"notebird:chirp-created":{"id":"%s"},"notebird:nav-refresh":{}}`, created.ID))
+	ctl.hx(w, map[string]any{
+		"notebird:chirp-created": map[string]string{"id": created.ID},
+		"notebird:nav-refresh":   map[string]any{},
+		"notebird:notice":        notice("success", "Chirp posted", "Your note is now in the timeline."),
+	})
 	ctl.execute(w, "chirp-list", map[string]any{"Chirps": chirps})
 }
 
 func (ctl *controller) handlePreview(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ctl.fail(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	refs, err := ctl.store.ResolveTextRefs(r.Context(), r.FormValue("text"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ctl.fail(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -156,7 +170,7 @@ func (ctl *controller) handleSuggest(w http.ResponseWriter, r *http.Request) {
 	case "tag":
 		tags, err := ctl.store.SuggestTags(r.Context(), q, 10)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			ctl.fail(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		items := make([]map[string]string, 0, len(tags))
@@ -167,12 +181,12 @@ func (ctl *controller) handleSuggest(w http.ResponseWriter, r *http.Request) {
 	default:
 		chirps, err := ctl.store.SuggestTitles(r.Context(), q, 10)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			ctl.fail(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		wanted, err := ctl.store.SuggestWantedRefs(r.Context(), q, 10)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			ctl.fail(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		items := make([]map[string]string, 0, len(chirps)+len(wanted))
@@ -195,14 +209,14 @@ func (ctl *controller) handleChirpDetail(w http.ResponseWriter, r *http.Request)
 	start := time.Now()
 	c, err := ctl.store.GetChirp(r.Context(), r.PathValue("id"))
 	if err != nil {
-		http.Error(w, "chirp not found", http.StatusNotFound)
+		ctl.fail(w, "chirp not found", http.StatusNotFound)
 		return
 	}
 	ctl.renderChirp(&c)
 	filter := feedFilterFromRequest(r)
 	chirps, err := ctl.store.ListChirpsFiltered(r.Context(), filter, 50)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ctl.fail(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	ctl.renderChirps(chirps)
@@ -214,7 +228,7 @@ func (ctl *controller) handleChirpDetail(w http.ResponseWriter, r *http.Request)
 func (ctl *controller) handleChirpDetailPartial(w http.ResponseWriter, r *http.Request) {
 	c, err := ctl.store.GetChirp(r.Context(), r.PathValue("id"))
 	if err != nil {
-		http.Error(w, "chirp not found", http.StatusNotFound)
+		ctl.fail(w, "chirp not found", http.StatusNotFound)
 		return
 	}
 	ctl.renderChirp(&c)
@@ -226,13 +240,13 @@ func (ctl *controller) handleEditChirp(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	c, err := ctl.store.GetChirp(r.Context(), r.PathValue("id"))
 	if err != nil {
-		http.Error(w, "chirp not found", http.StatusNotFound)
+		ctl.fail(w, "chirp not found", http.StatusNotFound)
 		return
 	}
 	ctl.renderChirp(&c)
 	chirps, err := ctl.store.ListChirps(r.Context(), 50)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ctl.fail(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	ctl.renderChirps(chirps)
@@ -244,7 +258,7 @@ func (ctl *controller) handleEditChirp(w http.ResponseWriter, r *http.Request) {
 func (ctl *controller) handleEditChirpPartial(w http.ResponseWriter, r *http.Request) {
 	c, err := ctl.store.GetChirp(r.Context(), r.PathValue("id"))
 	if err != nil {
-		http.Error(w, "chirp not found", http.StatusNotFound)
+		ctl.fail(w, "chirp not found", http.StatusNotFound)
 		return
 	}
 	w.Header().Set("HX-Push-Url", "/chirps/"+c.ID+"/edit")
@@ -253,87 +267,101 @@ func (ctl *controller) handleEditChirpPartial(w http.ResponseWriter, r *http.Req
 
 func (ctl *controller) handleUpdateChirp(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ctl.fail(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	c, err := ctl.store.UpdateChirp(r.Context(), r.PathValue("id"), r.FormValue("title"), r.FormValue("text"), r.FormValue("tags"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ctl.fail(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	ctl.renderChirp(&c)
-	w.Header().Set("HX-Trigger", `{"notebird:feed-refresh":{},"notebird:nav-refresh":{},"notebird:chirp-saved":{}}`)
+	ctl.hx(w, map[string]any{
+		"notebird:feed-refresh": map[string]any{},
+		"notebird:nav-refresh":  map[string]any{},
+		"notebird:notice":       notice("success", "Chirp saved", "Changes were written locally."),
+	})
 	w.Header().Set("HX-Push-Url", "/chirps/"+c.ID)
 	ctl.execute(w, "chirp-create", map[string]any{"CreateForm": ctl.newCreateForm(r.Context())})
 }
 
 func (ctl *controller) handleDeleteChirp(w http.ResponseWriter, r *http.Request) {
 	if err := ctl.store.DeleteChirp(r.Context(), r.PathValue("id")); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ctl.fail(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("HX-Trigger", `{"notebird:feed-refresh":{},"notebird:nav-refresh":{},"notebird:chirp-deleted":{}}`)
+	ctl.hx(w, map[string]any{
+		"notebird:feed-refresh": map[string]any{},
+		"notebird:nav-refresh":  map[string]any{},
+		"notebird:notice":       notice("success", "Chirp deleted", "The note was removed."),
+	})
 	ctl.execute(w, "chirp-detail", map[string]any{"Selected": Chirp{}})
 }
 
 func (ctl *controller) handleUploadDraftAttachment(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ctl.fail(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	file, header, err := r.FormFile("attachment")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ctl.fail(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
 	if _, err := ctl.store.StoreDraftAttachment(r.Context(), r.PathValue("id"), header.Filename, header.Header.Get("Content-Type"), file); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ctl.fail(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	attachments, err := ctl.store.ListDraftAttachments(r.Context(), r.PathValue("id"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ctl.fail(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	ctl.hx(w, map[string]any{
+		"notebird:notice": notice("success", "Attachment staged", "The file will be linked when you post the Chirp."),
+	})
 	ctl.executePartial(w, r, "draft-attachments", map[string]any{"DraftID": r.PathValue("id"), "Attachments": attachments})
 }
 
 func (ctl *controller) handleUploadAttachment(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ctl.fail(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	file, header, err := r.FormFile("attachment")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ctl.fail(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
 
 	if _, err := ctl.store.StoreAttachment(r.Context(), r.PathValue("id"), header.Filename, header.Header.Get("Content-Type"), file); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ctl.fail(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	chirp, err := ctl.store.GetChirp(r.Context(), r.PathValue("id"))
 	if err != nil {
-		http.Error(w, "chirp not found", http.StatusNotFound)
+		ctl.fail(w, "chirp not found", http.StatusNotFound)
 		return
 	}
 	ctl.renderChirp(&chirp)
-	w.Header().Set("HX-Trigger", `{"notebird:feed-refresh":{}}`)
+	ctl.hx(w, map[string]any{
+		"notebird:feed-refresh": map[string]any{},
+		"notebird:notice":       notice("success", "Attachment added", "The file is now linked to this Chirp."),
+	})
 	ctl.executePartial(w, r, "chirp-detail", map[string]any{"Selected": chirp})
 }
 
 func (ctl *controller) handleAttachment(w http.ResponseWriter, r *http.Request) {
 	path, contentType, err := ctl.store.AttachmentFile(r.Context(), r.PathValue("hash"))
 	if err != nil {
-		http.Error(w, "attachment not found", http.StatusNotFound)
+		ctl.fail(w, "attachment not found", http.StatusNotFound)
 		return
 	}
 	file, err := os.Open(path)
 	if err != nil {
-		http.Error(w, "attachment not found", http.StatusNotFound)
+		ctl.fail(w, "attachment not found", http.StatusNotFound)
 		return
 	}
 	defer file.Close()
@@ -360,13 +388,13 @@ func (ctl *controller) handleSettings(w http.ResponseWriter, r *http.Request) {
 
 func (ctl *controller) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ctl.fail(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	fontSize, _ := strconv.Atoi(r.FormValue("editor_font_size"))
 	settings, err := ctl.store.SaveSettings(r.Context(), Settings{EditorMode: r.FormValue("editor_mode"), WordWrap: r.FormValue("word_wrap") == "on" || r.FormValue("word_wrap") == "true", EditorFontSize: fontSize})
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ctl.fail(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if wantsJSON(r) {
@@ -374,7 +402,10 @@ func (ctl *controller) handleUpdateSettings(w http.ResponseWriter, r *http.Reque
 		_ = json.NewEncoder(w).Encode(settings)
 		return
 	}
-	w.Header().Set("HX-Trigger", `{"notebird:settings-saved":{}}`)
+	ctl.hx(w, map[string]any{
+		"notebird:settings-saved": map[string]any{},
+		"notebird:notice":         notice("success", "Settings saved", "Composer preferences updated."),
+	})
 	ctl.executePartial(w, r, "settings-panel", map[string]any{"Settings": settings})
 }
 
@@ -382,7 +413,7 @@ func (ctl *controller) handleOpenAPI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/yaml; charset=utf-8")
 	file, err := tmplfs.Assets.ReadFile("static/openapi.yaml")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ctl.fail(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.Write(file)
@@ -391,6 +422,28 @@ func (ctl *controller) handleOpenAPI(w http.ResponseWriter, r *http.Request) {
 func (ctl *controller) handleConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(ctl.cfg)
+}
+
+// hx writes a merged HX-Trigger header for backend-driven UI events.
+// Handlers use it to ask the browser to refresh fragments and show structured
+// notifications without hand-assembling JSON header strings at each call site.
+func (ctl *controller) hx(w http.ResponseWriter, events map[string]any) {
+	if len(events) == 0 {
+		return
+	}
+	payload, err := json.Marshal(events)
+	if err != nil {
+		log.Error("encode htmx trigger failed", "err", err)
+		return
+	}
+	w.Header().Set("HX-Trigger", string(payload))
+}
+
+func (ctl *controller) fail(w http.ResponseWriter, message string, status int) {
+	ctl.hx(w, map[string]any{
+		"notebird:notice": notice("error", http.StatusText(status), message),
+	})
+	http.Error(w, message, status)
 }
 
 func (ctl *controller) writeStatus(w http.ResponseWriter, r *http.Request, status int, state string) {
@@ -423,7 +476,7 @@ func (ctl *controller) executePartial(w http.ResponseWriter, r *http.Request, na
 	var buf bytes.Buffer
 	if err := ctl.templates.ExecuteTemplate(&buf, name, data); err != nil {
 		log.Error("template render failed", "template", name, "err", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ctl.fail(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	ctl.lastTemplateMS.Store(uint64(time.Since(start).Microseconds()))

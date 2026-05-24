@@ -23,12 +23,19 @@
   background: var(--white);
   cursor: pointer;
   padding: var(--space-4);
-  transition: background 120ms ease, border-color 120ms ease;
+  transition-property: background, border-color, transform, box-shadow;
+  transition-duration: 120ms;
+  transition-timing-function: ease;
 }
 
 .chirp:hover {
   border-left-color: var(--blue-3);
   background: #f7fbfd;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.72);
+}
+
+.chirp:active {
+  transform: scale(0.99);
 }
 
 .chirp.is-active {
@@ -44,6 +51,7 @@
 }
 
 .chirp__header h2 {
+  color: var(--blue-6);
   font-size: 1rem;
 }
 
@@ -52,6 +60,7 @@
   color: var(--muted);
   font-family: var(--font-mono);
   font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .chirp__body {
@@ -83,6 +92,17 @@
   font-size: 0.85rem;
 }
 
+.feed.htmx-request::after {
+  content: "Loading chirps…";
+  display: block;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  background: var(--gray-1);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  padding: var(--space-3) var(--space-4);
+}
+
 .empty-state {
   display: grid;
   gap: var(--space-2);
@@ -90,6 +110,12 @@
   color: var(--muted);
   background: var(--white);
   text-align: center;
+}
+
+.empty-state::before {
+  content: "✦";
+  color: var(--blue-3);
+  font-size: 1.5rem;
 }
 
 .empty-state h2 {

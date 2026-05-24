@@ -9,8 +9,19 @@
 	{{end}}
 	{{if .Chirps}} {{range .Chirps}}{{template "chirp-item" .}}{{end}} {{else}}
 	<article class="empty-state">
-		<h2>No Chirps found.</h2>
-		<p>Try a different search, tag, or write a new Chirp.</p>
+		{{if .Filter.Query}}
+		<h2>No search results.</h2>
+		<p>No Chirps matched “{{.Filter.Query}}”. Try a different phrase or clear the search.</p>
+		{{else if .Filter.Tag}}
+		<h2>No Chirps tagged #{{.Filter.Tag}}.</h2>
+		<p>This tag exists in the URL, but there are no matching Chirps yet.</p>
+		{{else if eq .Filter.Mode "wanted"}}
+		<h2>No wanted links.</h2>
+		<p>Every wiki link currently points somewhere. Nice and tidy.</p>
+		{{else}}
+		<h2>No Chirps yet.</h2>
+		<p>Open the composer and write the first note.</p>
+		{{end}}
 	</article>
 	{{end}}
 </section>

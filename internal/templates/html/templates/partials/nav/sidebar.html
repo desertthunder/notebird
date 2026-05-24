@@ -5,12 +5,12 @@
 		{{if .SettingsPage}}
 		<a class="nav-list__item" href="/">Index</a>
 		<a class="nav-list__item" href="/chirps?mode=wanted">
-			Wanted {{if .WantedRefs}}<span class="nav-list__count">{{len .WantedRefs}}</span>{{end}}
+			<span>Wanted</span>{{if .WantedRefs}}<span class="nav-list__count">{{len .WantedRefs}}</span>{{end}}
 		</a>
 		{{else}}
 		<a class="nav-list__item {{if eq .Filter.Mode "timeline"}}is-active{{end}}" href="/" hx-get="/x/chirps" hx-target="#feed" hx-swap="outerHTML" hx-push-url="/">Index</a>
 		<a class="nav-list__item {{if eq .Filter.Mode "wanted"}}is-active{{end}}" href="/chirps?mode=wanted" hx-get="/x/chirps?mode=wanted" hx-target="#feed" hx-swap="outerHTML" hx-push-url="/chirps?mode=wanted">
-			Wanted {{if .WantedRefs}}<span class="nav-list__count">{{len .WantedRefs}}</span>{{end}}
+			<span>Wanted</span>{{if .WantedRefs}}<span class="nav-list__count">{{len .WantedRefs}}</span>{{end}}
 		</a>
 		{{end}}
 		<a class="nav-list__item {{if .SettingsPage}}is-active{{end}}" href="/settings">Settings</a>

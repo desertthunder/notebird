@@ -11,16 +11,29 @@
 }
 
 .button {
+  min-height: 2.25rem;
   border: 1px solid var(--accent-strong);
   border-radius: 999px;
   color: white;
   background: linear-gradient(var(--blue-4), var(--blue-5));
   font-weight: 700;
   padding: 0.45rem 1rem;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 1px 1px rgb(41 47 51 / 0.08);
+  transition-property: background, box-shadow, transform;
+  transition-duration: 120ms;
+  transition-timing-function: ease;
 }
 
 .button:hover { background: linear-gradient(#38a8e4, var(--blue-5)); }
+
+.button:active {
+  transform: scale(0.96);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
 
 .button--quiet {
   border-color: var(--border);
@@ -38,6 +51,11 @@
 .button--danger:hover { background: linear-gradient(#f43f5e, #be123c); }
 
 .tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
   color: var(--accent-strong);
+  background: var(--blue-1);
   font-weight: 700;
+  padding: 0.05rem 0.45rem;
 }

@@ -214,6 +214,50 @@ function installDirtyComposerGuards() {
 	});
 }
 
+// TODO: these should be handled by the backend
+function showNotification({ type = "success", title = "Saved", message = "Done." } = {}) {
+	const host = document.querySelector("#notifications");
+	if (!host) return;
+	const item = document.createElement("div");
+	item.className = `notification notification--${type}`;
+	item.setAttribute("role", type === "error" ? "alert" : "status");
+	item.innerHTML = `
+		<span class="notification__icon" aria-hidden="true">${type === "error" ? "!" : "✓"}</span>
+		<span><strong class="notification__title"></strong><span class="notification__message"></span></span>
+		<button class="notification__close" type="button" aria-label="Dismiss">×</button>
+	`;
+	item.querySelector(".notification__title").textContent = title;
+	item.querySelector(".notification__message").textContent = message ? ` ${message}` : "";
+	const remove = () => {
+		item.classList.remove("is-visible");
+		setTimeout(() => item.remove(), 180);
+	};
+	item.querySelector(".notification__close")?.addEventListener("click", remove);
+	host.append(item);
+	requestAnimationFrame(() => item.classList.add("is-visible"));
+	setTimeout(remove, type === "error" ? 7000 : 3600);
+}
+
+function installNotifications() {
+	document.body.addEventListener("notebird:notice", (event) => {
+		showNotification(event.detail || { type: "success", title: "Done", message: "" });
+	});
+	document.body.addEventListener("htmx:responseError", (event) => {
+		if (event.detail.xhr?.getResponseHeader("HX-Trigger")?.includes("notebird:notice")) return;
+		showNotification({
+			type: "error",
+			title: "Request failed",
+			message: event.detail.xhr?.responseText?.trim() || "The server returned an error.",
+		});
+	});
+	document.body.addEventListener("htmx:sendError", () =>
+		showNotification({ type: "error", title: "Network error", message: "Could not reach Notebird." }),
+	);
+	document.body.addEventListener("htmx:timeout", () =>
+		showNotification({ type: "error", title: "Request timed out", message: "Try again in a moment." }),
+	);
+}
+
 function installGlobalShortcuts() {
 	document.addEventListener("keydown", (event) => {
 		if (event.defaultPrevented) return;
@@ -235,5 +279,6 @@ document.addEventListener("DOMContentLoaded", () => {
 	installActiveChirpTracking();
 	installGlobalShortcuts();
 	installDirtyComposerGuards();
+	installNotifications();
 });
 document.body.addEventListener("htmx:afterSwap", enhanceAllComposers);

@@ -40,8 +40,8 @@
 	</div>
 	<section class="detail__section">
 		<h3>Add attachment</h3>
-		<form hx-post="/chirps/{{.Selected.ID}}/attachments" hx-target="#detail" hx-swap="outerHTML" hx-encoding="multipart/form-data" enctype="multipart/form-data">
-			<input type="file" name="attachment" required />
+		<form class="attachment-upload-form" hx-post="/chirps/{{.Selected.ID}}/attachments" hx-target="#detail" hx-swap="outerHTML" hx-encoding="multipart/form-data" enctype="multipart/form-data">
+			<input type="file" name="attachment" />
 			<button class="button" type="submit">Upload</button>
 		</form>
 	</section>

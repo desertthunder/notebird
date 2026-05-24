@@ -49,6 +49,7 @@
 }
 
 .composer-tabs__tab {
+  min-height: 2.25rem;
   border: 1px solid transparent;
   border-bottom: 0;
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
@@ -56,6 +57,12 @@
   background: transparent;
   font-weight: 700;
   padding: 0.45rem 0.8rem;
+  transition-property: background, transform;
+  transition-duration: 120ms;
+}
+
+.composer-tabs__tab:active {
+  transform: scale(0.96);
 }
 
 .composer-tabs__tab:hover {
@@ -307,6 +314,32 @@
   color: var(--muted);
   font-family: var(--font-mono);
   font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .composer {
+    padding: var(--space-3);
+  }
+
+  .composer__header,
+  .composer__bar,
+  .composer-editor-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .composer-tabs__tab {
+    flex: 1;
+  }
+
+  .composer__actions {
+    justify-content: stretch;
+  }
+
+  .composer__actions .button {
+    flex: 1;
+  }
 }
 
 [x-cloak] {

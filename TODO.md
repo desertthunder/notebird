@@ -22,11 +22,6 @@ an old-school Twitter feel.
 - [ ] Add slow query logging
 - [ ] Consider pprof behind an explicit flag
 
-- [ ] Tighten "old-Twitter" visual details
-- [ ] Improve mobile collapsed layout
-- [ ] Add hover/focus/active polish
-- [ ] Add empty/loading/error states for HTMX fragments
-
 ## Parking Lot
 
 - Graph view

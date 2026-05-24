@@ -2,8 +2,13 @@
 
 Notebird is a tiny local-first personal wiki designed to resemble old-school Twitter.
 
-It runs as a Go web app on localhost, stores Chirps in SQLite, renders Markdown with
-wiki links, and uses HTMX/Alpine for small interactive updates instead of a SPA.
+![Notebird screenshot](./docs/images/screenshot.png)
+
+It runs as a local Go web app, stores Chirps (notes) in SQLite with attachments using
+CAS on your local filesystem, supports Markdown with wiki links, and uses HTMX/Alpine
+for small interactive updates. It almost functions entirely with the nobuild stack, but
+markdown and wysiwyg editing require CodeMirror & ProseMirror, which are bundled via
+esbuild.
 
 ## Requirements
 
@@ -13,17 +18,21 @@ wiki links, and uses HTMX/Alpine for small interactive updates instead of a SPA.
 - Optional: [`air`](https://github.com/air-verse/air) for Go hot reload
 
 If Air is not installed, `just dev` falls back to `go run github.com/air-verse/air@latest`.
+You can optionally `just run` to start the server without hot reload.
 
 ### Stack
 
 - Go server and CLI
 - SQLite persistence
-- TiddlyWiki-inspired **Chirps** with ULID identity
-- Markdown rendering with `[[Wiki Links]]`
-- HTMX-powered feed/detail updates
-- CodeMirror Markdown composer with server-rendered preview
+- Commonmark compliant markdown, extended with `[[Wiki Links]]`
+  - Notes/markdown files are TiddlyWiki-inspired **Chirps** with ULID identity
+- Fully featured editors
+  - CodeMirror Markdown composer with server-rendered preview
+  - ProseMirror WYSIWYG composer with Markdown source sync
+  - esbuild for CodeMirror & ProseMirror
 - Vendored HTMX, Alpine, and local fonts
-- Charmbracelet `fang`, `log`, and `lipgloss` for CLI/logging polish
+  - HTMX-powered feed/detail updates, with Alpine sprinkles for interactivity
+- Charmbracelet libs for CLI/logging polish
 
 ## Run locally
 

@@ -49,7 +49,7 @@
 			<h3>Attachments</h3>
 			<div id="draft-attachments-{{.DraftID}}">{{template "draft-attachments" .}}</div>
 			<div id="draft-upload-{{.DraftID}}" class="composer-attachment-upload">
-				<input type="file" name="attachment" required />
+				<input type="file" name="attachment" />
 				<button class="button button--quiet" type="button" hx-post="/drafts/{{.DraftID}}/attachments" hx-target="#draft-attachments-{{.DraftID}}" hx-swap="outerHTML" hx-include="#draft-upload-{{.DraftID}} input" hx-encoding="multipart/form-data">Attach</button>
 			</div>
 		</section>
