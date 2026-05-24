@@ -36,6 +36,11 @@ func OpenStore(ctx context.Context, dataDir string) (*Store, error) {
 
 func (s *Store) Close() error { return s.db.Close() }
 
+// Ping verifies that the backing database connection can handle a simple query.
+func (s *Store) Ping(ctx context.Context) error {
+	return s.db.PingContext(ctx)
+}
+
 func (s *Store) migrate(ctx context.Context) error {
 	_, err := s.db.ExecContext(ctx, `
         pragma journal_mode = wal;

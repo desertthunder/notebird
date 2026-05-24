@@ -25,6 +25,18 @@ func newController(app *App) *controller {
 	return &controller{App: app}
 }
 
+func (ctl *controller) handleHealth(w http.ResponseWriter, r *http.Request) {
+	ctl.writeStatus(w, r, http.StatusOK, "ok")
+}
+
+func (ctl *controller) handleReadiness(w http.ResponseWriter, r *http.Request) {
+	if err := ctl.store.Ping(r.Context()); err != nil {
+		ctl.writeStatus(w, r, http.StatusServiceUnavailable, "unavailable")
+		return
+	}
+	ctl.writeStatus(w, r, http.StatusOK, "ready")
+}
+
 func (ctl *controller) handleHome(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	filter := feedFilterFromRequest(r)
@@ -272,6 +284,18 @@ func (ctl *controller) handleOpenAPI(w http.ResponseWriter, r *http.Request) {
 func (ctl *controller) handleConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(ctl.cfg)
+}
+
+func (ctl *controller) writeStatus(w http.ResponseWriter, r *http.Request, status int, state string) {
+	if wantsJSON(r) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": state})
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(status)
+	_, _ = w.Write([]byte(state + "\n"))
 }
 
 func (ctl *controller) execute(w http.ResponseWriter, name string, data any) {

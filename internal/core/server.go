@@ -112,7 +112,8 @@ func (a *App) router() http.Handler {
 	staticFS, _ := fs.Sub(tmplfs.Assets, "static")
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok\n")) })
+	mux.HandleFunc("GET /healthz", c.handleHealth)
+	mux.HandleFunc("GET /readyz", c.handleReadiness)
 	mux.HandleFunc("GET /debug/config", c.handleConfig)
 	mux.Handle("GET /debug/vars", expvar.Handler())
 	mux.HandleFunc("GET /docs", c.handleDocs)
