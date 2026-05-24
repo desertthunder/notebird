@@ -1,23 +1,22 @@
 {{define "chirp-form"}}
-<section id="composer" class="composer {{if .Chirp.ID}}composer--edit{{end}}" x-data="{ text: '', title: '', tags: '', tab: 'write' }" @notebird:chirp-created.window="text = ''; title = ''; tags = ''; tab = 'write'">
-	{{if .Chirp.ID}}
-	<header class="detail__header">
+<section id="composer" class="composer {{if .Chirp.ID}}composer--edit{{else}}is-collapsed{{end}}" x-data="{ tab: 'write' }" @notebird:chirp-created.window="tab = 'write'">
+	<header class="composer__header">
 		<div>
 			<p class="eyebrow">{{.Heading}}</p>
-			<h2>{{.Chirp.Title}}</h2>
-			<span class="detail__meta">{{.Chirp.ID}}</span>
+			<h2>{{if .Chirp.ID}}{{.Chirp.Title}}{{else}}New Chirp{{end}}</h2>
+			{{if .Chirp.ID}}<span class="detail__meta">{{.Chirp.ID}}</span>{{else}}<span class="detail__meta">Draft the sound a bird makes.</span>{{end}}
 		</div>
+		<button class="button button--quiet composer__toggle" type="button" data-toggle-composer aria-expanded="{{if .Chirp.ID}}true{{else}}false{{end}}">{{if .Chirp.ID}}Collapse{{else}}Compose{{end}}</button>
 	</header>
-	{{end}}
-	<form data-composer {{if not .Draft}}data-draft="off"{{end}} hx-{{.Method}}="{{.Action}}" hx-target="{{if .Chirp.ID}}#composer{{else}}#feed{{end}}" hx-swap="outerHTML" data-confirm-dirty>
-		<input class="composer__title" name="title" type="text" placeholder="{{.TitlePlaceholder}}" value="{{.Chirp.Title}}" x-model="title" />
+	<form data-composer {{if not .Draft}}data-draft="off"{{end}} hx-{{.Method}}="{{.Action}}" hx-target="{{if .Chirp.ID}}#composer{{else}}#feed{{end}}" hx-swap="outerHTML" data-confirm-dirty {{if not .Chirp.ID}}hidden{{end}}>
+		<input class="composer__title" name="title" type="text" placeholder="{{.TitlePlaceholder}}" value="{{.Chirp.Title}}" />
 		<div class="composer-tabs" role="tablist" aria-label="Composer mode">
 			<button class="composer-tabs__tab" :class="{ 'is-active': tab === 'write' }" type="button" role="tab" :aria-selected="tab === 'write'" @click="tab = 'write'">Write</button>
 			<button class="composer-tabs__tab" :class="{ 'is-active': tab === 'preview' }" type="button" role="tab" :aria-selected="tab === 'preview'" @click="tab = 'preview'">Preview</button>
 		</div>
 		<div class="composer-panels">
 			<div class="composer-panel" x-show="tab === 'write'" role="tabpanel">
-				<textarea class="composer__text" data-editor="markdown" name="text" rows="7" placeholder="{{.TextPlaceholder}}" x-model="text" required>{{.Chirp.Text}}</textarea>
+				<textarea class="composer__text" data-editor="markdown" name="text" rows="7" placeholder="{{.TextPlaceholder}}" required>{{.Chirp.Text}}</textarea>
 				<div class="composer-editor-controls" data-editor-controls>
 					<button class="button button--quiet" type="button" data-toggle-wrap>Wrap on</button>
 					<label class="composer-font-size">Font <input type="number" min="11" max="24" step="1" value="16" data-font-size /> px</label>
@@ -31,10 +30,10 @@
 		</div>
 		<label class="composer-tags">
 			<span>Tags</span>
-			<input name="tags" type="text" placeholder="garden, reading, #idea" value="{{.TagValue}}" x-model="tags" />
+			<input name="tags" type="text" placeholder="garden, reading, #idea" value="{{.TagValue}}" />
 		</label>
 		<div class="composer__bar">
-			<span class="composer__count" x-text="text.length + ' chars'">0 chars</span>
+			<span class="composer__count" data-composer-count>{{len .Chirp.Text}} chars</span>
 			<div class="composer__actions">
 				{{if .ShowCancel}}<button class="button button--quiet" type="button" hx-get="/x/composer" hx-target="#composer" hx-swap="outerHTML">Cancel</button>{{end}}
 				<button class="button" type="submit">{{.SubmitLabel}}</button>

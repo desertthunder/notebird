@@ -28,11 +28,6 @@ type App struct {
 	lastTemplateMS atomic.Uint64
 }
 
-type PageMetrics struct {
-	PageMS     float64
-	TemplateMS float64
-}
-
 type PageData struct {
 	Chirps      []Chirp
 	Selected    Chirp
@@ -151,7 +146,7 @@ func (a *App) handleHome(w http.ResponseWriter, r *http.Request) {
 		Tags:        tags,
 		WantedRefs:  wanted,
 		Filter:      filter,
-		Metrics:     PageMetrics{PageMS: float64(time.Since(start).Microseconds()) / 1000, TemplateMS: a.recentTemplateMS()},
+		Metrics:     pageMetricsSince(start, a.recentTemplateMS()),
 		CurrentYear: time.Now().Year(),
 	}
 	a.execute(w, "base", data)
@@ -176,6 +171,7 @@ func (a *App) handleNav(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleFeed(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	filter := feedFilterFromRequest(r)
 	chirps, err := a.store.ListChirpsFiltered(r.Context(), filter, 50)
 	if err != nil {
@@ -185,7 +181,7 @@ func (a *App) handleFeed(w http.ResponseWriter, r *http.Request) {
 	a.renderChirps(chirps)
 	tags, _ := a.store.TagCounts(r.Context(), 50)
 	wanted, _ := a.store.WantedRefs(r.Context())
-	a.execute(w, "base", PageData{Chirps: chirps, CreateForm: newCreateForm(), Tags: tags, WantedRefs: wanted, Filter: filter, CurrentYear: time.Now().Year()})
+	a.execute(w, "base", PageData{Chirps: chirps, CreateForm: newCreateForm(), Tags: tags, WantedRefs: wanted, Filter: filter, Metrics: pageMetricsSince(start, a.recentTemplateMS()), CurrentYear: time.Now().Year()})
 }
 
 func (a *App) handleFeedPartial(w http.ResponseWriter, r *http.Request) {
@@ -279,6 +275,7 @@ func (a *App) handleSuggest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleChirpDetail(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	c, err := a.store.GetChirp(r.Context(), r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "chirp not found", http.StatusNotFound)
@@ -294,7 +291,7 @@ func (a *App) handleChirpDetail(w http.ResponseWriter, r *http.Request) {
 	a.renderChirps(chirps)
 	tags, _ := a.store.TagCounts(r.Context(), 50)
 	wanted, _ := a.store.WantedRefs(r.Context())
-	a.execute(w, "base", PageData{Chirps: chirps, Selected: c, CreateForm: newCreateForm(), Tags: tags, WantedRefs: wanted, Filter: filter, CurrentYear: time.Now().Year()})
+	a.execute(w, "base", PageData{Chirps: chirps, Selected: c, CreateForm: newCreateForm(), Tags: tags, WantedRefs: wanted, Filter: filter, Metrics: pageMetricsSince(start, a.recentTemplateMS()), CurrentYear: time.Now().Year()})
 }
 
 func (a *App) handleChirpDetailPartial(w http.ResponseWriter, r *http.Request) {
@@ -309,6 +306,7 @@ func (a *App) handleChirpDetailPartial(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleEditChirp(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	c, err := a.store.GetChirp(r.Context(), r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "chirp not found", http.StatusNotFound)
@@ -323,7 +321,7 @@ func (a *App) handleEditChirp(w http.ResponseWriter, r *http.Request) {
 	a.renderChirps(chirps)
 	tags, _ := a.store.TagCounts(r.Context(), 50)
 	wanted, _ := a.store.WantedRefs(r.Context())
-	a.execute(w, "base", PageData{Chirps: chirps, Selected: c, CreateForm: newUpdateForm(c), Tags: tags, WantedRefs: wanted, Filter: FeedFilter{Mode: "timeline"}, CurrentYear: time.Now().Year()})
+	a.execute(w, "base", PageData{Chirps: chirps, Selected: c, CreateForm: newUpdateForm(c), Tags: tags, WantedRefs: wanted, Filter: FeedFilter{Mode: "timeline"}, Metrics: pageMetricsSince(start, a.recentTemplateMS()), CurrentYear: time.Now().Year()})
 }
 
 func (a *App) handleEditChirpPartial(w http.ResponseWriter, r *http.Request) {

@@ -77,16 +77,18 @@ function enhanceComposer(form) {
 	textarea.dataset.enhanced = "true";
 	restoreDraft(form, textarea);
 
-	const syncAlpine = () => {
-		textarea.dispatchEvent(new Event("input", { bubbles: true }));
+	const count = form.querySelector("[data-composer-count]");
+	const updateCount = (text) => {
+		if (count) count.textContent = `${text.length} chars`;
 	};
 
 	let initialSnapshot = "";
-	const currentSnapshot = () => JSON.stringify({
-		title: form.querySelector("input[name='title']")?.value || "",
-		tags: form.querySelector("input[name='tags']")?.value || "",
-		text: textarea.value || "",
-	});
+	const currentSnapshot = () =>
+		JSON.stringify({
+			title: form.querySelector("input[name='title']")?.value || "",
+			tags: form.querySelector("input[name='tags']")?.value || "",
+			text: textarea.value || "",
+		});
 	const updateDirty = () => {
 		form.dataset.dirty = currentSnapshot() !== initialSnapshot ? "true" : "false";
 	};
@@ -119,7 +121,7 @@ function enhanceComposer(form) {
 				if (!update.docChanged) return;
 				const text = update.state.doc.toString();
 				textarea.value = text;
-				syncAlpine();
+				updateCount(text);
 				updateDirty();
 				debouncedPreview(text);
 				debouncedDraft(text);
@@ -134,7 +136,9 @@ function enhanceComposer(form) {
 
 	const view = new EditorView({ state, parent: mount });
 	markClean();
-	form.querySelectorAll("input[name='title'], input[name='tags']").forEach((input) => input.addEventListener("input", updateDirty));
+	form
+		.querySelectorAll("input[name='title'], input[name='tags']")
+		.forEach((input) => input.addEventListener("input", updateDirty));
 	const wrapButton = form.querySelector("[data-toggle-wrap]");
 	wrapButton?.addEventListener("click", () => {
 		wrapEnabled = !wrapEnabled;
@@ -152,21 +156,64 @@ function enhanceComposer(form) {
 	});
 	form.addEventListener("reset", () => {
 		view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "" } });
+		updateCount("");
 		markClean();
 		clearDraft();
 		updatePreview(form, "");
 	});
 	window.addEventListener("notebird:chirp-created", () => {
 		view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "" } });
+		updateCount("");
 		markClean();
 		clearDraft();
 		updatePreview(form, "");
+		collapseComposerIfClean();
 	});
 
+	updateCount(textarea.value);
 	updatePreview(form, textarea.value);
 }
 
+function enhanceComposerToggle(section) {
+	const button = section.querySelector("[data-toggle-composer]");
+	const form = section.querySelector("form[data-composer]");
+	if (!button || !form || button.dataset.enhanced === "true") return;
+	button.dataset.enhanced = "true";
+	button.addEventListener("click", () => {
+		const collapsed = form.hidden;
+		form.hidden = !collapsed;
+		section.classList.toggle("is-collapsed", !collapsed);
+		button.setAttribute("aria-expanded", String(collapsed));
+		button.textContent = collapsed ? "Collapse" : "Compose";
+		if (collapsed) requestAnimationFrame(() => section.querySelector(".cm-content")?.focus());
+	});
+}
+
+function expandComposer({ focus = false } = {}) {
+	const section = document.querySelector("#composer");
+	const form = section?.querySelector("form[data-composer]");
+	const button = section?.querySelector("[data-toggle-composer]");
+	if (!section || !form) return;
+	form.hidden = false;
+	section.classList.remove("is-collapsed");
+	button?.setAttribute("aria-expanded", "true");
+	if (button) button.textContent = "Collapse";
+	if (focus) requestAnimationFrame(() => section.querySelector(".cm-content")?.focus());
+}
+
+function collapseComposerIfClean() {
+	const section = document.querySelector("#composer");
+	const form = section?.querySelector("form[data-composer]");
+	const button = section?.querySelector("[data-toggle-composer]");
+	if (!section || !form || form.dataset.dirty === "true") return;
+	form.hidden = true;
+	section.classList.add("is-collapsed");
+	button?.setAttribute("aria-expanded", "false");
+	if (button) button.textContent = "Compose";
+}
+
 function enhanceAllComposers() {
+	document.querySelectorAll("#composer").forEach(enhanceComposerToggle);
 	document.querySelectorAll("form[data-composer]").forEach(enhanceComposer);
 }
 
@@ -223,7 +270,7 @@ function installGlobalShortcuts() {
 		}
 		if (event.key.toLowerCase() === "n" && !typing) {
 			event.preventDefault();
-			document.querySelector(".cm-content")?.focus();
+			expandComposer({ focus: true });
 		}
 	});
 }

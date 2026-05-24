@@ -1,12 +1,39 @@
 .composer {
+  min-height: 0;
+  overflow: auto;
   border-bottom: 1px solid var(--border);
   background: var(--blue-1);
   padding: var(--space-3) var(--space-4);
 }
 
+.composer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.composer__header h2 {
+  color: var(--blue-6);
+  font-size: 1.2rem;
+}
+
+.composer__toggle {
+  flex: none;
+}
+
+.composer.is-collapsed {
+  background: linear-gradient(135deg, var(--blue-1), var(--white));
+}
+
 .composer form {
   display: grid;
   gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.composer form[hidden] {
+  display: none;
 }
 
 .composer__title {
@@ -51,7 +78,7 @@
 }
 
 .composer__text {
-  min-height: 12rem;
+  min-height: 10rem;
   resize: none;
 }
 
@@ -76,7 +103,7 @@
 }
 
 .composer-preview {
-  min-height: 12rem;
+  min-height: 10rem;
   max-height: min(24rem, calc(100vh - 18rem));
   overflow: auto;
   border: 1px solid var(--border);

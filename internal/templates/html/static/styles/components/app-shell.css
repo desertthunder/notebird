@@ -126,9 +126,13 @@
 
 .timeline {
   display: grid;
-  grid-template-rows: auto auto minmax(14rem, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
   min-height: min(44rem, calc(100vh - 7.5rem));
   max-height: calc(100vh - 7.5rem);
+}
+
+.timeline:has(.composer.is-collapsed) {
+  grid-template-rows: auto auto minmax(14rem, 1fr);
 }
 
 .timeline__header {
