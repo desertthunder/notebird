@@ -87,6 +87,25 @@
   margin-bottom: var(--space-2);
 }
 
+.attachment-list {
+  display: grid;
+  gap: var(--space-3);
+  list-style: none;
+  padding: 0;
+}
+
+.attachment-list__item {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.attachment-list__image {
+  display: block;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
 .ref-list {
   display: grid;
   gap: var(--space-1);

@@ -3,31 +3,13 @@
 Build Notebird as a tiny local Go web app/daemon-ish server: a personal wiki with
 an old-school Twitter feel.
 
-## Attachments
-
-Use content-addressed storage with SHA-256:
-
-```text
-attachments/
-  sha256/
-    ab/
-      cd/
-        abcdef...
-```
-
-- [ ] Add `attachments` table
-- [ ] Add `chirp_attachments` table
-- [ ] Store files by SHA-256 hash
-- [ ] Add attachment upload endpoint
-- [ ] Render image attachments in Markdown/detail views
-- [ ] Include attachments in Markdown export
-
 ## Import / Export
 
 - [ ] Export Chirps as Markdown files with metadata
 - [ ] Import Markdown files into Chirps
 - [ ] Preserve tags, fields, timestamps, and refs where possible
 - [ ] Decide export layout for attachments
+- [ ] Include attachments in Markdown export
 
 ## Observability
 

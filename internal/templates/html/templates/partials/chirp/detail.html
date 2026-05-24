@@ -9,6 +9,21 @@
 		</div>
 	</header>
 	<div class="detail__body prose">{{safe .Selected.HTML}}</div>
+	{{if .Selected.Attachments}}
+	<section class="detail__section attachments">
+		<h3>Attachments</h3>
+		<ul class="attachment-list">
+			{{range .Selected.Attachments}}
+			<li class="attachment-list__item">
+				{{if .IsImage}}
+				<a href="{{.URL}}"><img class="attachment-list__image" src="{{.URL}}" alt="{{.Filename}}" loading="lazy" /></a>
+				{{end}}
+				<a href="{{.URL}}">{{.Filename}}</a>
+			</li>
+			{{end}}
+		</ul>
+	</section>
+	{{end}}
 	<div class="detail__actions" aria-label="Chirp actions">
 		<button class="button button--quiet" type="button" hx-get="/x/chirps/{{.Selected.ID}}/edit" hx-target="#composer" hx-swap="outerHTML">
 			Edit
@@ -23,6 +38,13 @@
 			Delete
 		</button>
 	</div>
+	<section class="detail__section">
+		<h3>Add attachment</h3>
+		<form hx-post="/chirps/{{.Selected.ID}}/attachments" hx-target="#detail" hx-swap="outerHTML" hx-encoding="multipart/form-data" enctype="multipart/form-data">
+			<input type="file" name="attachment" required />
+			<button class="button" type="submit">Upload</button>
+		</form>
+	</section>
 	<section class="detail__section">
 		<h3>Outgoing refs</h3>
 		{{if .Selected.Refs}}

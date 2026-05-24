@@ -3,17 +3,28 @@ package core
 import "time"
 
 type Chirp struct {
-	ID        string
-	Title     string
-	Text      string
-	Type      string
-	Tags      []string
-	Refs      []ChirpRef
-	Backlinks []ChirpRef
-	Fields    map[string]string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	HTML      string
+	ID          string
+	Title       string
+	Text        string
+	Type        string
+	Tags        []string
+	Refs        []ChirpRef
+	Backlinks   []ChirpRef
+	Attachments []Attachment
+	Fields      map[string]string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	HTML        string
+}
+
+type Attachment struct {
+	Hash        string
+	Filename    string
+	ContentType string
+	Size        int64
+	CreatedAt   time.Time
+	URL         string
+	IsImage     bool
 }
 
 type ChirpRef struct {

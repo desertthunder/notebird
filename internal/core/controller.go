@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -265,6 +266,48 @@ func (ctl *controller) handleDeleteChirp(w http.ResponseWriter, r *http.Request)
 	}
 	w.Header().Set("HX-Trigger", `{"notebird:feed-refresh":{},"notebird:nav-refresh":{},"notebird:chirp-deleted":{}}`)
 	ctl.execute(w, "chirp-detail", map[string]any{"Selected": Chirp{}})
+}
+
+func (ctl *controller) handleUploadAttachment(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	file, header, err := r.FormFile("attachment")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	if _, err := ctl.store.StoreAttachment(r.Context(), r.PathValue("id"), header.Filename, header.Header.Get("Content-Type"), file); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	chirp, err := ctl.store.GetChirp(r.Context(), r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "chirp not found", http.StatusNotFound)
+		return
+	}
+	ctl.renderChirp(&chirp)
+	w.Header().Set("HX-Trigger", `{"notebird:feed-refresh":{}}`)
+	ctl.executePartial(w, r, "chirp-detail", map[string]any{"Selected": chirp})
+}
+
+func (ctl *controller) handleAttachment(w http.ResponseWriter, r *http.Request) {
+	path, contentType, err := ctl.store.AttachmentFile(r.Context(), r.PathValue("hash"))
+	if err != nil {
+		http.Error(w, "attachment not found", http.StatusNotFound)
+		return
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		http.Error(w, "attachment not found", http.StatusNotFound)
+		return
+	}
+	defer file.Close()
+	w.Header().Set("Content-Type", contentType)
+	http.ServeContent(w, r, r.URL.Query().Get("name"), time.Now(), file)
 }
 
 func (ctl *controller) handleDocs(w http.ResponseWriter, r *http.Request) {

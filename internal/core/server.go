@@ -118,6 +118,7 @@ func (a *App) router() http.Handler {
 	mux.Handle("GET /debug/vars", expvar.Handler())
 	mux.HandleFunc("GET /docs", c.handleDocs)
 	mux.HandleFunc("GET /openapi.yaml", c.handleOpenAPI)
+	mux.HandleFunc("GET /attachments/{hash}", c.handleAttachment)
 
 	mux.HandleFunc("GET /", c.handleHome)
 
@@ -135,6 +136,7 @@ func (a *App) router() http.Handler {
 	mux.HandleFunc("GET /chirps/{id}/edit", c.handleEditChirp)
 	mux.HandleFunc("PUT /chirps/{id}", c.handleUpdateChirp)
 	mux.HandleFunc("DELETE /chirps/{id}", c.handleDeleteChirp)
+	mux.HandleFunc("POST /chirps/{id}/attachments", c.handleUploadAttachment)
 
 	return a.requestLogger(mux)
 }

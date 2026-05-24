@@ -15,7 +15,8 @@ import (
 )
 
 type Store struct {
-	db *sql.DB
+	dataDir string
+	db      *sql.DB
 }
 
 func OpenStore(ctx context.Context, dataDir string) (*Store, error) {
@@ -26,7 +27,7 @@ func OpenStore(ctx context.Context, dataDir string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Store{db: db}
+	s := &Store{dataDir: dataDir, db: db}
 	if err := s.migrate(ctx); err != nil {
 		db.Close()
 		return nil, err
@@ -233,6 +234,7 @@ func (s *Store) ListChirpsFiltered(ctx context.Context, filter FeedFilter, limit
 		c.Tags, _ = s.tags(ctx, c.ID)
 		c.Refs, _ = s.OutgoingRefs(ctx, c.ID)
 		c.Fields, _ = s.Fields(ctx, c.ID)
+		c.Attachments, _ = s.ListAttachments(ctx, c.ID)
 		chirps = append(chirps, c)
 	}
 	return chirps, rows.Err()
@@ -248,6 +250,7 @@ func (s *Store) GetChirp(ctx context.Context, id string) (Chirp, error) {
 	c.Refs, _ = s.OutgoingRefs(ctx, c.ID)
 	c.Backlinks, _ = s.Backlinks(ctx, c.ID)
 	c.Fields, _ = s.Fields(ctx, c.ID)
+	c.Attachments, _ = s.ListAttachments(ctx, c.ID)
 	return c, nil
 }
 
