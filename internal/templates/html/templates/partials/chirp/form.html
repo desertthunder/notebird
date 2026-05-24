@@ -11,6 +11,16 @@
 	<form data-composer data-word-wrap="{{.Settings.WordWrap}}" data-editor-font-size="{{.Settings.EditorFontSize}}" data-editor-mode="{{.Settings.EditorMode}}" {{if not .Draft}}data-draft="off"{{end}} hx-{{.Method}}="{{.Action}}" hx-target="{{if .Chirp.ID}}#composer{{else}}#feed{{end}}" hx-swap="outerHTML" data-confirm-dirty {{if not .Chirp.ID}}hidden{{end}}>
 		{{if .DraftID}}<input type="hidden" name="draft_id" value="{{.DraftID}}" />{{end}}
 		<input class="composer__title" name="title" type="text" placeholder="{{.TitlePlaceholder}}" value="{{.Chirp.Title}}" />
+		{{if eq .Settings.EditorMode "wysiwyg"}}
+		<div class="composer-panels composer-panels--single">
+			<div class="composer-panel" role="tabpanel">
+				<textarea class="composer__text" data-editor="markdown" name="text" rows="7" placeholder="{{.TextPlaceholder}}" required>{{.Chirp.Text}}</textarea>
+				<div class="composer-editor-controls" data-editor-controls>
+					<label class="composer-font-size">Font <input type="number" min="11" max="24" step="1" value="16" data-font-size /> px</label>
+				</div>
+			</div>
+		</div>
+		{{else}}
 		<div class="composer-tabs" role="tablist" aria-label="Composer mode">
 			<button class="composer-tabs__tab" :class="{ 'is-active': tab === 'write' }" type="button" role="tab" :aria-selected="tab === 'write'" @click="tab = 'write'">Write</button>
 			<button class="composer-tabs__tab" :class="{ 'is-active': tab === 'preview' }" type="button" role="tab" :aria-selected="tab === 'preview'" @click="tab = 'preview'">Preview</button>
@@ -29,6 +39,7 @@
 				</div>
 			</div>
 		</div>
+		{{end}}
 		<label class="composer-tags">
 			<span>Tags</span>
 			<input name="tags" type="text" placeholder="garden, reading, #idea" value="{{.TagValue}}" />

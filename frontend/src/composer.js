@@ -1,14 +1,6 @@
-import { indentWithTab } from "@codemirror/commands";
-import { markdown } from "@codemirror/lang-markdown";
-import { languages } from "@codemirror/language-data";
-import { Compartment, EditorState } from "@codemirror/state";
-import { keymap } from "@codemirror/view";
-import { basicSetup, EditorView } from "codemirror";
-import { atelierLakesideLight, base16Theme } from "./base16.js";
-import { notebirdAutocomplete } from "./suggestions.js";
+import { enhanceCodeMirrorComposer } from "./text-editor.js";
+import { enhanceProseMirrorComposer } from "./wysiwyg.js";
 
-const markdownConfig = new Compartment();
-const wrapConfig = new Compartment();
 const draftKey = "notebird:composer:draft";
 
 function debounce(fn, delay) {
@@ -82,6 +74,7 @@ function enhanceComposer(form) {
 		if (count) count.textContent = `${text.length} chars`;
 	};
 
+	let editor;
 	let initialSnapshot = "";
 	const currentSnapshot = () =>
 		JSON.stringify({
@@ -98,79 +91,32 @@ function enhanceComposer(form) {
 	};
 	const debouncedPreview = debounce((text) => updatePreview(form, text), 250);
 	const debouncedDraft = debounce((text) => saveDraft(form, text), 250);
-	let wrapEnabled = form.dataset.wordWrap !== "false";
-	const fontSize = Math.min(24, Math.max(11, Number(form.dataset.editorFontSize) || 16));
-	const state = EditorState.create({
-		doc: textarea.value,
-		extensions: [
-			basicSetup,
-			keymap.of([
-				indentWithTab,
-				{
-					key: "Mod-Enter",
-					run: () => {
-						form.requestSubmit();
-						return true;
-					},
-				},
-			]),
-			markdownConfig.of(markdown({ codeLanguages: languages })),
-			notebirdAutocomplete(),
-			base16Theme(atelierLakesideLight),
-			wrapConfig.of(wrapEnabled ? EditorView.lineWrapping : []),
-			EditorView.updateListener.of((update) => {
-				if (!update.docChanged) return;
-				const text = update.state.doc.toString();
-				textarea.value = text;
-				updateCount(text);
-				updateDirty();
-				debouncedPreview(text);
-				debouncedDraft(text);
-			}),
-		],
-	});
+	const onTextChange = (text) => {
+		updateCount(text);
+		updateDirty();
+		debouncedPreview(text);
+		debouncedDraft(text);
+	};
+	const onReset = () => {
+		updateCount("");
+		markClean();
+		clearDraft();
+		updatePreview(form, "");
+	};
 
-	const mount = document.createElement("div");
-	mount.className = "composer-editor";
-	textarea.insertAdjacentElement("beforebegin", mount);
-	textarea.classList.add("composer__text--hidden");
+	const enhancer = form.dataset.editorMode === "wysiwyg" ? enhanceProseMirrorComposer : enhanceCodeMirrorComposer;
+	editor = enhancer({ form, textarea, onChange: onTextChange, onClean: markClean, onReset });
 
-	const view = new EditorView({ state, parent: mount });
-	view.dom.style.setProperty("--editor-font-size", `${fontSize}px`);
-	markClean();
 	form
 		.querySelectorAll("input[name='title'], input[name='tags']")
 		.forEach((input) => input.addEventListener("input", updateDirty));
-	const wrapButton = form.querySelector("[data-toggle-wrap]");
-	if (wrapButton) wrapButton.textContent = wrapEnabled ? "Wrap on" : "Wrap off";
-	wrapButton?.addEventListener("click", () => {
-		wrapEnabled = !wrapEnabled;
-		view.dispatch({ effects: wrapConfig.reconfigure(wrapEnabled ? EditorView.lineWrapping : []) });
-		wrapButton.textContent = wrapEnabled ? "Wrap on" : "Wrap off";
-	});
-	const fontInput = form.querySelector("[data-font-size]");
-	if (fontInput) fontInput.value = String(fontSize);
-	fontInput?.addEventListener("input", () => {
-		const size = Math.min(24, Math.max(11, Number(fontInput.value) || 14));
-		view.dom.style.setProperty("--editor-font-size", `${size}px`);
-	});
 	form.addEventListener("submit", () => {
 		markClean();
 		if (form.dataset.draft !== "off") clearDraft();
 	});
-	form.addEventListener("reset", () => {
-		view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "" } });
-		updateCount("");
-		markClean();
-		clearDraft();
-		updatePreview(form, "");
-	});
+	form.addEventListener("reset", () => editor.clear());
 	window.addEventListener("notebird:chirp-created", () => {
-		view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "" } });
-		updateCount("");
-		markClean();
-		clearDraft();
-		updatePreview(form, "");
+		editor.clear();
 		collapseComposerIfClean();
 	});
 
@@ -189,7 +135,7 @@ function enhanceComposerToggle(section) {
 		section.classList.toggle("is-collapsed", !collapsed);
 		button.setAttribute("aria-expanded", String(collapsed));
 		button.textContent = collapsed ? "Collapse" : "Compose";
-		if (collapsed) requestAnimationFrame(() => section.querySelector(".cm-content")?.focus());
+		if (collapsed) requestAnimationFrame(() => section.querySelector(".cm-content, .ProseMirror")?.focus());
 	});
 }
 
@@ -202,7 +148,7 @@ function expandComposer({ focus = false } = {}) {
 	section.classList.remove("is-collapsed");
 	button?.setAttribute("aria-expanded", "true");
 	if (button) button.textContent = "Collapse";
-	if (focus) requestAnimationFrame(() => section.querySelector(".cm-content")?.focus());
+	if (focus) requestAnimationFrame(() => section.querySelector(".cm-content, .ProseMirror")?.focus());
 }
 
 function collapseComposerIfClean() {
@@ -272,7 +218,7 @@ function installGlobalShortcuts() {
 	document.addEventListener("keydown", (event) => {
 		if (event.defaultPrevented) return;
 		const target = event.target;
-		const typing = target?.matches?.("input, textarea, [contenteditable='true'], .cm-content");
+		const typing = target?.matches?.("input, textarea, [contenteditable='true'], .cm-content, .ProseMirror");
 		if (event.key === "/" && !typing) {
 			event.preventDefault();
 			document.querySelector("#search")?.focus();

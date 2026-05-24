@@ -77,6 +77,10 @@
   min-width: 0;
 }
 
+.composer-panels--single .composer-editor--rich {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
 .composer__text {
   min-height: 10rem;
   resize: none;
@@ -160,6 +164,113 @@
 .composer-tags input {
   font-family: var(--font-sans);
   font-size: 0.95rem;
+}
+
+.composer-editor--rich {
+  border: 1px solid var(--border);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  background: var(--white);
+  overflow: hidden;
+}
+
+.composer-rich-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(var(--white), var(--gray-1));
+  padding: var(--space-2);
+}
+
+.composer-rich-toolbar__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--border);
+}
+
+.composer-rich-toolbar__button {
+  border: 0;
+  border-radius: 0;
+  background: var(--white);
+  color: var(--blue-6);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.45rem 0.55rem;
+}
+
+.composer-rich-toolbar__button:hover,
+.composer-rich-toolbar__button:focus-visible {
+  background: var(--blue-1);
+}
+
+.composer-rich-surface {
+  max-height: min(24rem, calc(100vh - 18rem));
+  overflow: auto;
+}
+
+.composer-editor--rich .ProseMirror {
+  min-height: 11rem;
+  outline: none;
+  padding: var(--space-3);
+  font-size: var(--editor-font-size, 16px);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.composer-editor--rich .ProseMirror > * + * {
+  margin-top: var(--space-2);
+}
+
+.composer-editor--rich .ProseMirror h1,
+.composer-editor--rich .ProseMirror h2,
+.composer-editor--rich .ProseMirror h3 {
+  color: var(--blue-6);
+  line-height: 1.2;
+}
+
+.composer-editor--rich .ProseMirror blockquote {
+  border-left: 3px solid var(--blue-3);
+  color: var(--muted);
+  padding-left: var(--space-3);
+}
+
+.composer-editor--rich .ProseMirror ul,
+.composer-editor--rich .ProseMirror ol {
+  padding-left: var(--space-5);
+}
+
+.composer-editor--rich .ProseMirror code {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--gray-1);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  padding: 0.05rem 0.25rem;
+}
+
+.composer-editor--rich .ProseMirror pre {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--gray-1);
+  padding: var(--space-3);
+}
+
+.composer-editor--rich .ProseMirror pre code {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.composer-editor--rich .ProseMirror a {
+  color: var(--accent-strong);
+  font-weight: 700;
 }
 
 .composer-attachments {
