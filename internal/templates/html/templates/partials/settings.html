@@ -1,0 +1,31 @@
+{{define "settings-panel"}}
+<section id="settings-panel" class="settings-panel">
+	<form class="settings-form" hx-post="/settings" hx-target="#settings-panel" hx-swap="outerHTML">
+		<header class="settings-form__header">
+			<p class="eyebrow">Preferences</p>
+			<h2>Composer settings</h2>
+			<p class="settings-form__hint">Tune the note editor without changing your Markdown storage.</p>
+		</header>
+		<div class="settings-form__body">
+			<label class="settings-field">
+				<span>Editor mode</span>
+				<select name="editor_mode">
+					<option value="markdown" {{if eq .Settings.EditorMode "markdown"}}selected{{end}}>Plaintext + preview</option>
+					<option value="wysiwyg" {{if eq .Settings.EditorMode "wysiwyg"}}selected{{end}}>WYSIWYG</option>
+				</select>
+			</label>
+			<label class="settings-check">
+				<input type="checkbox" name="word_wrap" {{if .Settings.WordWrap}}checked{{end}} />
+				<span>Wrap long lines in the editor</span>
+			</label>
+			<label class="settings-field">
+				<span>Editor font size</span>
+				<input name="editor_font_size" type="number" min="11" max="24" step="1" value="{{.Settings.EditorFontSize}}" />
+			</label>
+		</div>
+		<footer class="settings-form__actions">
+			<button class="button" type="submit">Save settings</button>
+		</footer>
+	</form>
+</section>
+{{end}}

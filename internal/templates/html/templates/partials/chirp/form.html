@@ -8,7 +8,8 @@
 		</div>
 		<button class="button button--quiet composer__toggle" type="button" data-toggle-composer aria-expanded="{{if .Chirp.ID}}true{{else}}false{{end}}">{{if .Chirp.ID}}Collapse{{else}}Compose{{end}}</button>
 	</header>
-	<form data-composer {{if not .Draft}}data-draft="off"{{end}} hx-{{.Method}}="{{.Action}}" hx-target="{{if .Chirp.ID}}#composer{{else}}#feed{{end}}" hx-swap="outerHTML" data-confirm-dirty {{if not .Chirp.ID}}hidden{{end}}>
+	<form data-composer data-word-wrap="{{.Settings.WordWrap}}" data-editor-font-size="{{.Settings.EditorFontSize}}" data-editor-mode="{{.Settings.EditorMode}}" {{if not .Draft}}data-draft="off"{{end}} hx-{{.Method}}="{{.Action}}" hx-target="{{if .Chirp.ID}}#composer{{else}}#feed{{end}}" hx-swap="outerHTML" data-confirm-dirty {{if not .Chirp.ID}}hidden{{end}}>
+		{{if .DraftID}}<input type="hidden" name="draft_id" value="{{.DraftID}}" />{{end}}
 		<input class="composer__title" name="title" type="text" placeholder="{{.TitlePlaceholder}}" value="{{.Chirp.Title}}" />
 		<div class="composer-tabs" role="tablist" aria-label="Composer mode">
 			<button class="composer-tabs__tab" :class="{ 'is-active': tab === 'write' }" type="button" role="tab" :aria-selected="tab === 'write'" @click="tab = 'write'">Write</button>
@@ -32,6 +33,16 @@
 			<span>Tags</span>
 			<input name="tags" type="text" placeholder="garden, reading, #idea" value="{{.TagValue}}" />
 		</label>
+		{{if .DraftID}}
+		<section class="composer-attachments">
+			<h3>Attachments</h3>
+			<div id="draft-attachments-{{.DraftID}}">{{template "draft-attachments" .}}</div>
+			<div id="draft-upload-{{.DraftID}}" class="composer-attachment-upload">
+				<input type="file" name="attachment" required />
+				<button class="button button--quiet" type="button" hx-post="/drafts/{{.DraftID}}/attachments" hx-target="#draft-attachments-{{.DraftID}}" hx-swap="outerHTML" hx-include="#draft-upload-{{.DraftID}} input" hx-encoding="multipart/form-data">Attach</button>
+			</div>
+		</section>
+		{{end}}
 		<div class="composer__bar">
 			<span class="composer__count" data-composer-count>{{len .Chirp.Text}} chars</span>
 			<div class="composer__actions">

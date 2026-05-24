@@ -29,14 +29,18 @@ type App struct {
 
 // PageData is the view model passed to full-page HTML templates.
 type PageData struct {
-	Chirps      []Chirp
-	Selected    Chirp
-	CreateForm  ChirpForm
-	Tags        []TagCount
-	WantedRefs  []ChirpRef
-	Filter      FeedFilter
-	Metrics     PageMetrics
-	CurrentYear int
+	Chirps     []Chirp
+	Selected   Chirp
+	CreateForm ChirpForm
+	Tags       []TagCount
+	WantedRefs []ChirpRef
+	Filter     FeedFilter
+	// Metrics is expected on every full-page base template render so the footer
+	// can report page timing consistently across app pages.
+	Metrics      PageMetrics
+	Settings     Settings
+	SettingsPage bool
+	CurrentYear  int
 }
 
 // New opens application storage, parses embedded templates, and prepares markdown rendering.
@@ -117,6 +121,8 @@ func (a *App) router() http.Handler {
 	mux.HandleFunc("GET /debug/config", c.handleConfig)
 	mux.Handle("GET /debug/vars", expvar.Handler())
 	mux.HandleFunc("GET /docs", c.handleDocs)
+	mux.HandleFunc("GET /settings", c.handleSettings)
+	mux.HandleFunc("POST /settings", c.handleUpdateSettings)
 	mux.HandleFunc("GET /openapi.yaml", c.handleOpenAPI)
 	mux.HandleFunc("GET /attachments/{hash}", c.handleAttachment)
 
@@ -137,6 +143,7 @@ func (a *App) router() http.Handler {
 	mux.HandleFunc("PUT /chirps/{id}", c.handleUpdateChirp)
 	mux.HandleFunc("DELETE /chirps/{id}", c.handleDeleteChirp)
 	mux.HandleFunc("POST /chirps/{id}/attachments", c.handleUploadAttachment)
+	mux.HandleFunc("POST /drafts/{id}/attachments", c.handleUploadDraftAttachment)
 
 	return a.requestLogger(mux)
 }

@@ -27,6 +27,12 @@ type Attachment struct {
 	IsImage     bool
 }
 
+type Settings struct {
+	EditorMode     string `json:"editor_mode"`
+	WordWrap       bool   `json:"word_wrap"`
+	EditorFontSize int    `json:"editor_font_size"`
+}
+
 type ChirpRef struct {
 	FromID     string
 	ToID       string
@@ -59,6 +65,9 @@ type ChirpForm struct {
 	TitlePlaceholder string
 	TextPlaceholder  string
 	TagValue         string
+	DraftID          string
+	Attachments      []Attachment
+	Settings         Settings
 }
 
 type Config struct {

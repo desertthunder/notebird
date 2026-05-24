@@ -2,15 +2,19 @@
 <div class="app-shell">
 	{{template "sidebar" .}}
 
-	<main class="timeline" aria-label="Timeline">
+	<main class="timeline {{if .SettingsPage}}timeline--settings{{end}}" aria-label="Timeline">
 		<header class="timeline__header">
-			<h1>{{if .Filter.Query}}Search{{else if .Filter.Tag}}#{{.Filter.Tag}}{{else if eq .Filter.Mode "wanted"}}Wanted{{else}}Home{{end}}</h1>
+			<h1>{{if .SettingsPage}}Settings{{else if .Filter.Query}}Search{{else if .Filter.Tag}}#{{.Filter.Tag}}{{else if eq .Filter.Mode "wanted"}}Wanted{{else}}Home{{end}}</h1>
 			<span class="timeline__badge">local</span>
 		</header>
+		{{if .SettingsPage}}
+		{{template "settings-panel" .}}
+		{{else}}
 		{{template "chirp-create" .}}
 		{{template "chirp-list" .}}
+		{{end}}
 	</main>
 
-	{{template "chirp-detail" .}}
+	{{if .SettingsPage}}{{else}}{{template "chirp-detail" .}}{{end}}
 </div>
 {{end}}

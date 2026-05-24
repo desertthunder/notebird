@@ -162,6 +162,25 @@
   font-size: 0.95rem;
 }
 
+.composer-attachments {
+  display: grid;
+  gap: var(--space-2);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+}
+
+.composer-attachments h3 {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.composer-attachment-upload {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
 .composer__bar {
   display: flex;
   align-items: center;

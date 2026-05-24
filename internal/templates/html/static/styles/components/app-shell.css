@@ -135,6 +135,10 @@
   grid-template-rows: auto auto minmax(14rem, 1fr);
 }
 
+.timeline--settings {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
 .timeline__header {
   display: flex;
   align-items: center;

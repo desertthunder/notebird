@@ -2,16 +2,19 @@ package core
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/log"
 	tmplfs "github.com/desertthunder/notebird/internal/templates/html"
+	"github.com/oklog/ulid/v2"
 )
 
 // controller groups request handlers and rendering helpers for the web UI.
@@ -52,18 +55,19 @@ func (ctl *controller) handleHome(w http.ResponseWriter, r *http.Request) {
 	data := PageData{
 		Chirps:      chirps,
 		Selected:    Chirp{},
-		CreateForm:  newCreateForm(),
+		CreateForm:  ctl.newCreateForm(r.Context()),
 		Tags:        tags,
 		WantedRefs:  wanted,
 		Filter:      filter,
 		Metrics:     pageMetricsSince(start, ctl.recentTemplateMS()),
+		Settings:    ctl.settings(r.Context()),
 		CurrentYear: time.Now().Year(),
 	}
 	ctl.execute(w, "base", data)
 }
 
 func (ctl *controller) handleComposerPartial(w http.ResponseWriter, r *http.Request) {
-	ctl.executePartial(w, r, "chirp-create", map[string]any{"CreateForm": newCreateForm()})
+	ctl.executePartial(w, r, "chirp-create", map[string]any{"CreateForm": ctl.newCreateForm(r.Context())})
 }
 
 func (ctl *controller) handleNav(w http.ResponseWriter, r *http.Request) {
@@ -91,7 +95,7 @@ func (ctl *controller) handleFeed(w http.ResponseWriter, r *http.Request) {
 	ctl.renderChirps(chirps)
 	tags, _ := ctl.store.TagCounts(r.Context(), 50)
 	wanted, _ := ctl.store.WantedRefs(r.Context())
-	ctl.execute(w, "base", PageData{Chirps: chirps, CreateForm: newCreateForm(), Tags: tags, WantedRefs: wanted, Filter: filter, Metrics: pageMetricsSince(start, ctl.recentTemplateMS()), CurrentYear: time.Now().Year()})
+	ctl.execute(w, "base", PageData{Chirps: chirps, CreateForm: ctl.newCreateForm(r.Context()), Tags: tags, WantedRefs: wanted, Filter: filter, Metrics: pageMetricsSince(start, ctl.recentTemplateMS()), Settings: ctl.settings(r.Context()), CurrentYear: time.Now().Year()})
 }
 
 func (ctl *controller) handleFeedPartial(w http.ResponseWriter, r *http.Request) {
@@ -114,6 +118,10 @@ func (ctl *controller) handleCreateChirp(w http.ResponseWriter, r *http.Request)
 	created, err := ctl.store.CreateChirp(r.Context(), r.FormValue("title"), r.FormValue("text"), r.FormValue("tags"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := ctl.store.PromoteDraftAttachments(r.Context(), r.FormValue("draft_id"), created.ID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	chirps, err := ctl.store.ListChirps(r.Context(), 50)
@@ -200,7 +208,7 @@ func (ctl *controller) handleChirpDetail(w http.ResponseWriter, r *http.Request)
 	ctl.renderChirps(chirps)
 	tags, _ := ctl.store.TagCounts(r.Context(), 50)
 	wanted, _ := ctl.store.WantedRefs(r.Context())
-	ctl.execute(w, "base", PageData{Chirps: chirps, Selected: c, CreateForm: newCreateForm(), Tags: tags, WantedRefs: wanted, Filter: filter, Metrics: pageMetricsSince(start, ctl.recentTemplateMS()), CurrentYear: time.Now().Year()})
+	ctl.execute(w, "base", PageData{Chirps: chirps, Selected: c, CreateForm: ctl.newCreateForm(r.Context()), Tags: tags, WantedRefs: wanted, Filter: filter, Metrics: pageMetricsSince(start, ctl.recentTemplateMS()), Settings: ctl.settings(r.Context()), CurrentYear: time.Now().Year()})
 }
 
 func (ctl *controller) handleChirpDetailPartial(w http.ResponseWriter, r *http.Request) {
@@ -230,7 +238,7 @@ func (ctl *controller) handleEditChirp(w http.ResponseWriter, r *http.Request) {
 	ctl.renderChirps(chirps)
 	tags, _ := ctl.store.TagCounts(r.Context(), 50)
 	wanted, _ := ctl.store.WantedRefs(r.Context())
-	ctl.execute(w, "base", PageData{Chirps: chirps, Selected: c, CreateForm: newUpdateForm(c), Tags: tags, WantedRefs: wanted, Filter: FeedFilter{Mode: "timeline"}, Metrics: pageMetricsSince(start, ctl.recentTemplateMS()), CurrentYear: time.Now().Year()})
+	ctl.execute(w, "base", PageData{Chirps: chirps, Selected: c, CreateForm: ctl.newUpdateForm(r.Context(), c), Tags: tags, WantedRefs: wanted, Filter: FeedFilter{Mode: "timeline"}, Metrics: pageMetricsSince(start, ctl.recentTemplateMS()), Settings: ctl.settings(r.Context()), CurrentYear: time.Now().Year()})
 }
 
 func (ctl *controller) handleEditChirpPartial(w http.ResponseWriter, r *http.Request) {
@@ -240,7 +248,7 @@ func (ctl *controller) handleEditChirpPartial(w http.ResponseWriter, r *http.Req
 		return
 	}
 	w.Header().Set("HX-Push-Url", "/chirps/"+c.ID+"/edit")
-	ctl.executePartial(w, r, "chirp-update", map[string]any{"Selected": c, "Form": newUpdateForm(c)})
+	ctl.executePartial(w, r, "chirp-update", map[string]any{"Selected": c, "Form": ctl.newUpdateForm(r.Context(), c)})
 }
 
 func (ctl *controller) handleUpdateChirp(w http.ResponseWriter, r *http.Request) {
@@ -256,7 +264,7 @@ func (ctl *controller) handleUpdateChirp(w http.ResponseWriter, r *http.Request)
 	ctl.renderChirp(&c)
 	w.Header().Set("HX-Trigger", `{"notebird:feed-refresh":{},"notebird:nav-refresh":{},"notebird:chirp-saved":{}}`)
 	w.Header().Set("HX-Push-Url", "/chirps/"+c.ID)
-	ctl.execute(w, "chirp-create", map[string]any{"CreateForm": newCreateForm()})
+	ctl.execute(w, "chirp-create", map[string]any{"CreateForm": ctl.newCreateForm(r.Context())})
 }
 
 func (ctl *controller) handleDeleteChirp(w http.ResponseWriter, r *http.Request) {
@@ -266,6 +274,29 @@ func (ctl *controller) handleDeleteChirp(w http.ResponseWriter, r *http.Request)
 	}
 	w.Header().Set("HX-Trigger", `{"notebird:feed-refresh":{},"notebird:nav-refresh":{},"notebird:chirp-deleted":{}}`)
 	ctl.execute(w, "chirp-detail", map[string]any{"Selected": Chirp{}})
+}
+
+func (ctl *controller) handleUploadDraftAttachment(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	file, header, err := r.FormFile("attachment")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+	if _, err := ctl.store.StoreDraftAttachment(r.Context(), r.PathValue("id"), header.Filename, header.Header.Get("Content-Type"), file); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	attachments, err := ctl.store.ListDraftAttachments(r.Context(), r.PathValue("id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	ctl.executePartial(w, r, "draft-attachments", map[string]any{"DraftID": r.PathValue("id"), "Attachments": attachments})
 }
 
 func (ctl *controller) handleUploadAttachment(w http.ResponseWriter, r *http.Request) {
@@ -312,6 +343,39 @@ func (ctl *controller) handleAttachment(w http.ResponseWriter, r *http.Request) 
 
 func (ctl *controller) handleDocs(w http.ResponseWriter, r *http.Request) {
 	ctl.execute(w, "docs", nil)
+}
+
+func (ctl *controller) handleSettings(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	settings := ctl.settings(r.Context())
+	if wantsJSON(r) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(settings)
+		return
+	}
+	tags, _ := ctl.store.TagCounts(r.Context(), 50)
+	wanted, _ := ctl.store.WantedRefs(r.Context())
+	ctl.execute(w, "base", PageData{CreateForm: ctl.newCreateForm(r.Context()), Tags: tags, WantedRefs: wanted, Filter: FeedFilter{Mode: "settings"}, Metrics: pageMetricsSince(start, ctl.recentTemplateMS()), Settings: settings, SettingsPage: true, CurrentYear: time.Now().Year()})
+}
+
+func (ctl *controller) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	fontSize, _ := strconv.Atoi(r.FormValue("editor_font_size"))
+	settings, err := ctl.store.SaveSettings(r.Context(), Settings{EditorMode: r.FormValue("editor_mode"), WordWrap: r.FormValue("word_wrap") == "on" || r.FormValue("word_wrap") == "true", EditorFontSize: fontSize})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if wantsJSON(r) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(settings)
+		return
+	}
+	w.Header().Set("HX-Trigger", `{"notebird:settings-saved":{}}`)
+	ctl.executePartial(w, r, "settings-panel", map[string]any{"Settings": settings})
 }
 
 func (ctl *controller) handleOpenAPI(w http.ResponseWriter, r *http.Request) {
@@ -402,7 +466,7 @@ func truncateText(text string, limit int) string {
 	return string(runes[:limit]) + "…"
 }
 
-func newCreateForm() ChirpForm {
+func (ctl *controller) newCreateForm(ctx context.Context) ChirpForm {
 	return ChirpForm{
 		Action:           "/chirps",
 		Method:           "post",
@@ -411,10 +475,12 @@ func newCreateForm() ChirpForm {
 		Draft:            true,
 		TitlePlaceholder: "Title, optional",
 		TextPlaceholder:  "What are you noticing? Markdown, fenced code, wiki links, and #tags work.",
+		DraftID:          ulid.Make().String(),
+		Settings:         ctl.settings(ctx),
 	}
 }
 
-func newUpdateForm(c Chirp) ChirpForm {
+func (ctl *controller) newUpdateForm(ctx context.Context, c Chirp) ChirpForm {
 	return ChirpForm{
 		Chirp:            c,
 		Action:           "/chirps/" + c.ID,
@@ -426,7 +492,16 @@ func newUpdateForm(c Chirp) ChirpForm {
 		TitlePlaceholder: "Title",
 		TextPlaceholder:  "Markdown",
 		TagValue:         strings.Join(c.Tags, ", "),
+		Settings:         ctl.settings(ctx),
 	}
+}
+
+func (ctl *controller) settings(ctx context.Context) Settings {
+	settings, err := ctl.store.GetSettings(ctx)
+	if err != nil {
+		return defaultSettings
+	}
+	return settings
 }
 
 func feedFilterFromRequest(r *http.Request) FeedFilter {

@@ -98,7 +98,8 @@ function enhanceComposer(form) {
 	};
 	const debouncedPreview = debounce((text) => updatePreview(form, text), 250);
 	const debouncedDraft = debounce((text) => saveDraft(form, text), 250);
-	let wrapEnabled = true;
+	let wrapEnabled = form.dataset.wordWrap !== "false";
+	const fontSize = Math.min(24, Math.max(11, Number(form.dataset.editorFontSize) || 16));
 	const state = EditorState.create({
 		doc: textarea.value,
 		extensions: [
@@ -116,7 +117,7 @@ function enhanceComposer(form) {
 			markdownConfig.of(markdown({ codeLanguages: languages })),
 			notebirdAutocomplete(),
 			base16Theme(atelierLakesideLight),
-			wrapConfig.of(EditorView.lineWrapping),
+			wrapConfig.of(wrapEnabled ? EditorView.lineWrapping : []),
 			EditorView.updateListener.of((update) => {
 				if (!update.docChanged) return;
 				const text = update.state.doc.toString();
@@ -135,17 +136,20 @@ function enhanceComposer(form) {
 	textarea.classList.add("composer__text--hidden");
 
 	const view = new EditorView({ state, parent: mount });
+	view.dom.style.setProperty("--editor-font-size", `${fontSize}px`);
 	markClean();
 	form
 		.querySelectorAll("input[name='title'], input[name='tags']")
 		.forEach((input) => input.addEventListener("input", updateDirty));
 	const wrapButton = form.querySelector("[data-toggle-wrap]");
+	if (wrapButton) wrapButton.textContent = wrapEnabled ? "Wrap on" : "Wrap off";
 	wrapButton?.addEventListener("click", () => {
 		wrapEnabled = !wrapEnabled;
 		view.dispatch({ effects: wrapConfig.reconfigure(wrapEnabled ? EditorView.lineWrapping : []) });
 		wrapButton.textContent = wrapEnabled ? "Wrap on" : "Wrap off";
 	});
 	const fontInput = form.querySelector("[data-font-size]");
+	if (fontInput) fontInput.value = String(fontSize);
 	fontInput?.addEventListener("input", () => {
 		const size = Math.min(24, Math.max(11, Number(fontInput.value) || 14));
 		view.dom.style.setProperty("--editor-font-size", `${size}px`);
@@ -243,7 +247,12 @@ function dirtyComposer() {
 function confirmDirtyComposer(eventSource) {
 	const form = dirtyComposer();
 	if (!form) return true;
-	if (eventSource === form || eventSource?.matches?.("[type='submit']")) return true;
+	if (
+		eventSource === form ||
+		eventSource?.closest?.("form[data-composer]") === form ||
+		eventSource?.matches?.("[type='submit']")
+	)
+		return true;
 	return window.confirm("Discard unsaved changes in the composer?");
 }
 

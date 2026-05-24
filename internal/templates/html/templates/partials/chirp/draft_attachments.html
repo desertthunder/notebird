@@ -1,0 +1,16 @@
+{{define "draft-attachments"}}
+<div class="draft-attachments">
+	{{if .Attachments}}
+	<ul class="attachment-list">
+		{{range .Attachments}}
+		<li class="attachment-list__item">
+			{{if .IsImage}}<img class="attachment-list__image" src="{{.URL}}" alt="{{.Filename}}" loading="lazy" />{{end}}
+			<a href="{{.URL}}">{{.Filename}}</a>
+		</li>
+		{{end}}
+	</ul>
+	{{else}}
+	<p class="composer-preview__placeholder">No attachments yet.</p>
+	{{end}}
+</div>
+{{end}}
