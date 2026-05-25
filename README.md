@@ -90,3 +90,11 @@ just dev
 ```
 
 Run `just` to view all available commands.
+
+## Credits
+
+[TiddlyWiki](https://tiddlywiki.com/) for the idea of self-contained notes with wiki links
+
+[HeroPatterns](https://heropatterns.com/) for the default background pattern (grid/graph paper)
+
+Twitter, circa 2008, for the design inspiration
