@@ -1,0 +1,10 @@
+.git
+.gitignore
+Dockerfile
+.dockerignore
+.air.toml
+README.md
+docs
+tmp
+frontend/node_modules
+internal/templates/html/static/dist

@@ -25,17 +25,15 @@ You can optionally `just run` to start the server without hot reload.
 
 ### Stack
 
-- Go server and CLI
-- SQLite persistence
+- Go server (stdlib) and CLI (charm.sh libs), with SQLite persistence
 - Commonmark compliant markdown, extended with `[[Wiki Links]]`
   - Notes/markdown files are TiddlyWiki-inspired **Chirps** with ULID identity
+- nobuild front-end core
+  - HTMX-powered feed/detail updates, with Alpine sprinkles for interactivity
 - Fully featured editors
   - CodeMirror Markdown composer with server-rendered preview
   - ProseMirror WYSIWYG composer with Markdown source sync
   - esbuild for CodeMirror & ProseMirror
-- Vendored HTMX, Alpine, and local fonts
-  - HTMX-powered feed/detail updates, with Alpine sprinkles for interactivity
-- Charmbracelet libs for CLI/logging polish
 
 ## Run locally
 
@@ -55,13 +53,34 @@ By default Notebird stores data in your user config directory under `notebird`. 
 go run ./cmd/notebird --data-dir ./tmp/dev-data
 ```
 
+### With Docker
+
+Build the image from the project root:
+
+```sh
+docker build -t notebird .
+```
+
+Run Notebird with a persistent Docker volume:
+
+```sh
+docker run --rm -p 7331:7331 -v notebird-data:/data notebird
+```
+
+Then open:
+
+```text
+http://127.0.0.1:7331
+```
+
+The container stores the SQLite database and local files in `/data`.
+
 ## Development
 
 Install and build frontend assets:
 
 ```sh
-just assets-install
-just assets
+just build
 ```
 
 Run with Go hot reload via Air:
