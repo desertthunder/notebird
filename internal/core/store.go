@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,8 +53,9 @@ func (s *Store) migrate(ctx context.Context) error {
 	return s.applyMigrations(ctx)
 }
 
-func (s *Store) CreateChirp(ctx context.Context, title, text string, tagInput ...string) (Chirp, error) {
-	title, text, tags, fields, err := prepareChirpInput(title, text, strings.Join(tagInput, ","))
+func (s *Store) CreateChirp(ctx context.Context, title, text string, formInput ...string) (Chirp, error) {
+	tagInput, fieldInput := chirpFormInputs(formInput)
+	title, text, tags, fields, err := prepareChirpInput(title, text, tagInput, fieldInput)
 	if err != nil {
 		return Chirp{}, err
 	}
@@ -103,8 +105,9 @@ func (s *Store) CreateChirp(ctx context.Context, title, text string, tagInput ..
 	return c, nil
 }
 
-func (s *Store) UpdateChirp(ctx context.Context, id, title, text string, tagInput ...string) (Chirp, error) {
-	title, text, tags, fields, err := prepareChirpInput(title, text, strings.Join(tagInput, ","))
+func (s *Store) UpdateChirp(ctx context.Context, id, title, text string, formInput ...string) (Chirp, error) {
+	tagInput, fieldInput := chirpFormInputs(formInput)
+	title, text, tags, fields, err := prepareChirpInput(title, text, tagInput, fieldInput)
 	if err != nil {
 		return Chirp{}, err
 	}
@@ -271,6 +274,12 @@ func (s *Store) tags(ctx context.Context, id string) ([]string, error) {
 	return tags, rows.Err()
 }
 
+// chirpScanner matches the shared Scan shape of [*sql.Row] and [*sql.Rows].
+// This allows both types to hydrate a Chirp from the same selected columns.
+//
+// In contrast to [sql.Scanner], which is for scanning one SQL column into
+// a custom Go value, chirpScanner is for scanning multiple SQL columns
+// into several destination variables.
 type chirpScanner interface {
 	Scan(dest ...any) error
 }
@@ -299,7 +308,7 @@ func firstLineTitle(text string) string {
 	return line
 }
 
-func prepareChirpInput(title, text, tagInput string) (string, string, []string, map[string]string, error) {
+func prepareChirpInput(title, text, tagInput, fieldInput string) (string, string, []string, map[string]string, error) {
 	title = strings.TrimSpace(title)
 	text = strings.TrimSpace(text)
 	if text == "" {
@@ -308,6 +317,12 @@ func prepareChirpInput(title, text, tagInput string) (string, string, []string, 
 	body, frontmatter := splitFrontmatter(text)
 	body = strings.TrimSpace(body)
 	fields := frontmatterFields(frontmatter)
+	formFields, err := parseFieldInput(fieldInput)
+	if err != nil {
+		return "", "", nil, nil, err
+	}
+
+	maps.Copy(fields, formFields)
 	if title == "" {
 		title = strings.TrimSpace(fields["title"])
 	}
@@ -316,6 +331,16 @@ func prepareChirpInput(title, text, tagInput string) (string, string, []string, 
 	}
 	tags := extractTags(title, body, append(frontmatterTags(frontmatter), parseTagInput(tagInput)...)...)
 	return title, body, tags, fields, nil
+}
+
+func chirpFormInputs(input []string) (tagInput string, fieldInput string) {
+	if len(input) > 0 {
+		tagInput = input[0]
+	}
+	if len(input) > 1 {
+		fieldInput = input[1]
+	}
+	return tagInput, fieldInput
 }
 
 func parseTagInput(input string) []string {
@@ -354,7 +379,7 @@ func extractTags(title, text string, explicit ...string) []string {
 	for _, tag := range explicit {
 		add(tag)
 	}
-	for _, word := range strings.Fields(title + "\n" + text) {
+	for word := range strings.FieldsSeq(title + "\n" + text) {
 		word = strings.Trim(word, "\t\n\r .,;:!?()[]{}<>")
 		if strings.HasPrefix(word, "#") && len(word) > 1 {
 			add(word)
@@ -427,7 +452,7 @@ func (s *Store) SuggestTags(ctx context.Context, q string, limit int) ([]string,
 
 func ftsQuery(q string) string {
 	var terms []string
-	for _, raw := range strings.Fields(q) {
+	for raw := range strings.FieldsSeq(q) {
 		term := strings.Map(func(r rune) rune {
 			switch {
 			case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '_', r == '-':

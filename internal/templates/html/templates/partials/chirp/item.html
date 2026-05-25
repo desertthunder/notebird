@@ -1,7 +1,14 @@
 {{define "chirp-item"}}
 <article class="chirp" id="chirp-{{.ID}}" data-chirp-id="{{.ID}}" hx-get="/x/chirps/{{.ID}}" hx-target="#detail" hx-swap="outerHTML" tabindex="0">
 	<header class="chirp__header">
-		<h2>{{.Title}}</h2>
+		<div>
+			<h2>{{.Title}}</h2>
+			{{with fieldSummary .Fields}}
+			<div class="field-badges field-badges--compact" aria-label="Chirp field summary">
+				{{range .}}<span class="field-badge"><span class="field-badge__key">{{.Key}}</span> {{.Value}}</span>{{end}}
+			</div>
+			{{end}}
+		</div>
 		<span class="chirp__meta">{{shortID .ID}} · {{timeAgo .CreatedAt}}</span>
 	</header>
 	<div class="chirp__body">{{safe .HTML}}</div>

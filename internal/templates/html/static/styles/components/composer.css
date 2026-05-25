@@ -40,6 +40,41 @@
   font-weight: 700;
 }
 
+.composer-fields {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgb(255 255 255 / 0.55);
+  padding: var(--space-2) var(--space-3);
+}
+
+.composer-fields summary {
+  color: var(--blue-6);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.composer-fields label {
+  display: block;
+  margin-top: var(--space-2);
+}
+
+.composer-fields textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
+.composer-fields p {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: var(--space-1);
+}
+
+.composer-fields code {
+  font-family: var(--font-mono);
+}
+
 .composer-tabs {
   display: flex;
   align-items: end;

@@ -1,6 +1,12 @@
 package core
 
-import "time"
+import (
+	"sort"
+	"time"
+)
+
+var fieldSummaryKeys = []string{"kind", "status", "project", "source", "rating", "due"}
+var reservedDisplayFields = map[string]bool{"title": true, "tags": true}
 
 type Chirp struct {
 	ID          string
@@ -43,6 +49,11 @@ type ChirpRef struct {
 	CreatedFor string
 }
 
+type Field struct {
+	Key   string
+	Value string
+}
+
 type TagCount struct {
 	Tag   string
 	Count int
@@ -65,6 +76,7 @@ type ChirpForm struct {
 	TitlePlaceholder string
 	TextPlaceholder  string
 	TagValue         string
+	FieldValue       string
 	DraftID          string
 	Attachments      []Attachment
 	Settings         Settings
@@ -81,6 +93,40 @@ func NewConfig(h string, p int) Config {
 		Host: h,
 		Port: p,
 	}
+}
+
+// FieldSummary returns fields shown as title-adjacent badges.
+func FieldSummary(fields map[string]string) []Field {
+	if len(fields) == 0 {
+		return nil
+	}
+	out := make([]Field, 0, len(fieldSummaryKeys))
+	for _, key := range fieldSummaryKeys {
+		if value := fields[key]; value != "" {
+			out = append(out, Field{Key: key, Value: value})
+		}
+	}
+	return out
+}
+
+// FieldRows returns displayable fields in key order.
+func FieldRows(fields map[string]string) []Field {
+	if len(fields) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(fields))
+	for key, value := range fields {
+		if key == "" || value == "" || reservedDisplayFields[key] {
+			continue
+		}
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	out := make([]Field, 0, len(keys))
+	for _, key := range keys {
+		out = append(out, Field{Key: key, Value: fields[key]})
+	}
+	return out
 }
 
 func shortID(s string) string {

@@ -51,9 +51,11 @@ func New(cfg Config) (*App, error) {
 	}
 
 	tmpl := template.New("notebird").Funcs(template.FuncMap{
-		"safe":    func(s string) template.HTML { return template.HTML(s) },
-		"shortID": shortID,
-		"timeAgo": utils.TimeAgo,
+		"fieldRows":    FieldRows,
+		"fieldSummary": FieldSummary,
+		"safe":         func(s string) template.HTML { return template.HTML(s) },
+		"shortID":      shortID,
+		"timeAgo":      utils.TimeAgo,
 	})
 	patterns, err := tmplfs.TemplatePatterns(tmplfs.Assets, "templates")
 	if err != nil {
@@ -138,6 +140,11 @@ func (a *App) router() http.Handler {
 	mux.HandleFunc("POST /chirps", c.handleCreateChirp)
 	mux.HandleFunc("POST /preview", c.handlePreview)
 	mux.HandleFunc("GET /suggest", c.handleSuggest)
+	mux.HandleFunc("GET /x/chirps/{id}/fields", c.handleChirpFields)
+	mux.HandleFunc("PUT /x/chirps/{id}/fields", c.handleReplaceChirpFields)
+	mux.HandleFunc("PUT /x/chirps/{id}/fields/{key}", c.handleSetChirpField)
+	mux.HandleFunc("DELETE /x/chirps/{id}/fields/{key}", c.handleDeleteChirpField)
+
 	mux.HandleFunc("GET /chirps/{id}", c.handleChirpDetail)
 	mux.HandleFunc("GET /chirps/{id}/edit", c.handleEditChirp)
 	mux.HandleFunc("PUT /chirps/{id}", c.handleUpdateChirp)

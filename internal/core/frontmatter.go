@@ -1,6 +1,9 @@
 package core
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 func splitFrontmatter(text string) (body string, frontmatter string) {
 	text = strings.TrimPrefix(text, "\ufeff")
@@ -37,8 +40,8 @@ func frontmatterFields(frontmatter string) map[string]string {
 			var list []string
 			for j := i + 1; j < len(lines); j++ {
 				next := strings.TrimSpace(lines[j])
-				if strings.HasPrefix(next, "-") {
-					list = append(list, cleanFrontmatterValue(strings.TrimSpace(strings.TrimPrefix(next, "-"))))
+				if after, ok := strings.CutPrefix(next, "-"); ok {
+					list = append(list, cleanFrontmatterValue(strings.TrimSpace(after)))
 					continue
 				}
 				if next != "" && !strings.HasPrefix(lines[j], " ") && !strings.HasPrefix(lines[j], "\t") {
@@ -86,4 +89,38 @@ func frontmatterTags(frontmatter string) []string {
 
 func cleanFrontmatterValue(value string) string {
 	return strings.Trim(strings.TrimSpace(value), `"'`)
+}
+
+func parseFieldInput(input string) (map[string]string, error) {
+	fields := map[string]string{}
+	for lineNo, raw := range strings.Split(input, "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		sep := strings.Index(line, ":")
+		if sep < 0 {
+			sep = strings.Index(line, "=")
+		}
+		if sep < 0 {
+			return nil, fmt.Errorf("field line %d must use key: value", lineNo+1)
+		}
+		key := strings.TrimSpace(line[:sep])
+		value := cleanFrontmatterValue(line[sep+1:])
+		key, value, err := normalizeFieldInput(key, value)
+		if err != nil {
+			return nil, fmt.Errorf("field line %d: %w", lineNo+1, err)
+		}
+		fields[key] = value
+	}
+	return fields, nil
+}
+
+func formatFieldInput(fields map[string]string) string {
+	rows := FieldRows(fields)
+	lines := make([]string, 0, len(rows))
+	for _, row := range rows {
+		lines = append(lines, row.Key+": "+row.Value)
+	}
+	return strings.Join(lines, "\n")
 }

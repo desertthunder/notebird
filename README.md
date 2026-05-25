@@ -10,6 +10,9 @@ for small interactive updates. It almost functions entirely with the nobuild sta
 markdown and wysiwyg editing require CodeMirror & ProseMirror, which are bundled via
 esbuild.
 
+This project is the sibling of [noteleaf](https://github.com/stormlightlabs/noteleaf)
+but with a focus on notes and the web.
+
 ## Requirements
 
 - Go 1.26+

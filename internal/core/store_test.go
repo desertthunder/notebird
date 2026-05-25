@@ -71,6 +71,18 @@ func TestStoreFieldsAndRefs(t *testing.T) {
 		t.Fatalf("expected frontmatter fields stored, got %#v", frontmatterFields)
 	}
 
+	formFieldChirp, err := store.CreateChirp(ctx, "With Form Fields", "Body", "", "status: todo\nproject: notebird")
+	if err != nil {
+		t.Fatal(err)
+	}
+	formFields, err := store.Fields(ctx, formFieldChirp.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if formFields["status"] != "todo" || formFields["project"] != "notebird" {
+		t.Fatalf("expected form fields stored, got %#v", formFields)
+	}
+
 	if err := store.SetField(ctx, a.ID, "mood", "curious"); err != nil {
 		t.Fatal(err)
 	}

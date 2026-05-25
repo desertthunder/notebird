@@ -60,6 +60,9 @@ paths:
                 tags:
                   type: string
                   description: Optional space- or comma-separated tags from the tag input.
+                fields:
+                  type: string
+                  description: Optional custom fields, one `key: value` pair per line.
       responses:
         '200':
           description: Feed HTML fragment after creation
@@ -106,6 +109,9 @@ paths:
                 tags:
                   type: string
                   description: Optional space- or comma-separated tags from the tag input.
+                fields:
+                  type: string
+                  description: Optional custom fields, one `key: value` pair per line.
       responses:
         '200':
           description: Create composer HTML fragment after update
@@ -194,6 +200,108 @@ paths:
                 $ref: '#/components/schemas/PartialResponse'
         '404':
           description: Chirp not found
+  /x/chirps/{id}/fields:
+    get:
+      summary: Get Chirp fields
+      parameters:
+        - $ref: '#/components/parameters/ChirpID'
+        - $ref: '#/components/parameters/JSONPartial'
+      responses:
+        '200':
+          description: Chirp fields as an HTML partial or JSON with `json=1`
+          content:
+            text/html:
+              schema:
+                type: string
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FieldsResponse'
+        '404':
+          description: Chirp not found
+    put:
+      summary: Replace Chirp fields
+      parameters:
+        - $ref: '#/components/parameters/ChirpID'
+        - $ref: '#/components/parameters/JSONPartial'
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                fields:
+                  type: string
+                  description: Custom fields, one `key: value` pair per line.
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FieldsResponse'
+      responses:
+        '200':
+          description: Updated Chirp fields as an HTML partial or JSON with `json=1`
+          content:
+            text/html:
+              schema:
+                type: string
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FieldsResponse'
+        '400':
+          description: Invalid field data
+  /x/chirps/{id}/fields/{key}:
+    put:
+      summary: Set one Chirp field
+      parameters:
+        - $ref: '#/components/parameters/ChirpID'
+        - $ref: '#/components/parameters/FieldKey'
+        - $ref: '#/components/parameters/JSONPartial'
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value:
+                  type: string
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value:
+                  type: string
+      responses:
+        '200':
+          description: Updated Chirp fields as an HTML partial or JSON with `json=1`
+          content:
+            text/html:
+              schema:
+                type: string
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FieldsResponse'
+        '400':
+          description: Invalid field data
+    delete:
+      summary: Delete one Chirp field
+      parameters:
+        - $ref: '#/components/parameters/ChirpID'
+        - $ref: '#/components/parameters/FieldKey'
+        - $ref: '#/components/parameters/JSONPartial'
+      responses:
+        '200':
+          description: Updated Chirp fields as an HTML partial or JSON with `json=1`
+          content:
+            text/html:
+              schema:
+                type: string
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FieldsResponse'
+        '400':
+          description: Invalid field key
   /x/composer:
     get:
       summary: Render create composer partial
@@ -320,6 +428,13 @@ components:
       schema:
         type: string
       description: Chirp ULID
+    FieldKey:
+      name: key
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Custom field key
     SearchQuery:
       name: q
       in: query
@@ -369,6 +484,13 @@ components:
           type: string
         detail:
           type: string
+    FieldsResponse:
+      type: object
+      properties:
+        fields:
+          type: object
+          additionalProperties:
+            type: string
     Config:
       type: object
       properties:

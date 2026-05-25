@@ -11,6 +11,14 @@
 	<form data-composer data-word-wrap="{{.Settings.WordWrap}}" data-editor-font-size="{{.Settings.EditorFontSize}}" data-editor-mode="{{.Settings.EditorMode}}" {{if not .Draft}}data-draft="off"{{end}} hx-{{.Method}}="{{.Action}}" hx-target="{{if .Chirp.ID}}#composer{{else}}#feed{{end}}" hx-swap="outerHTML" data-confirm-dirty {{if not .Chirp.ID}}hidden{{end}}>
 		{{if .DraftID}}<input type="hidden" name="draft_id" value="{{.DraftID}}" />{{end}}
 		<input class="composer__title" name="title" type="text" placeholder="{{.TitlePlaceholder}}" value="{{.Chirp.Title}}" />
+		<details class="composer-fields" {{if .FieldValue}}open{{end}}>
+			<summary>Fields</summary>
+			<label>
+				<span class="sr-only">Custom fields</span>
+				<textarea name="fields" rows="3" placeholder="status: todo&#10;kind: book&#10;source: https://example.com">{{.FieldValue}}</textarea>
+			</label>
+			<p>One <code>key: value</code> field per line. Frontmatter fields in the Markdown body still work.</p>
+		</details>
 		{{if eq .Settings.EditorMode "wysiwyg"}}
 		<div class="composer-panels composer-panels--single">
 			<div class="composer-panel" role="tabpanel">

@@ -5,10 +5,16 @@
 		<div>
 			<p class="eyebrow">Selected Chirp</p>
 			<h2>{{.Selected.Title}}</h2>
+			{{with fieldSummary .Selected.Fields}}
+			<div class="field-badges" aria-label="Chirp field summary">
+				{{range .}}<span class="field-badge"><span class="field-badge__key">{{.Key}}</span> {{.Value}}</span>{{end}}
+			</div>
+			{{end}}
 			<span class="detail__meta">{{.Selected.ID}} · {{timeAgo .Selected.CreatedAt}}</span>
 		</div>
 	</header>
 	<div class="detail__body prose">{{safe .Selected.HTML}}</div>
+	{{template "chirp-fields" .}}
 	{{if .Selected.Attachments}}
 	<section class="detail__section attachments">
 		<h3>Attachments</h3>
@@ -52,9 +58,9 @@
 			{{range .Selected.Refs}}
 			<li>
 				{{if .Resolved}}
-				<a href="/chirps/{{.ToID}}" hx-get="/x/chirps/{{.ToID}}" hx-target="#detail" hx-swap="outerHTML"
-					>{{if .ToTitle}}{{.ToTitle}}{{else}}{{.RefText}}{{end}}</a
-				>
+				<a href="/chirps/{{.ToID}}" hx-get="/x/chirps/{{.ToID}}" hx-target="#detail" hx-swap="outerHTML">
+					{{if .ToTitle}}{{.ToTitle}}{{else}}{{.RefText}}{{end}}
+				</a>
 				{{else}}
 				<span class="ref-list__missing">{{.RefText}}</span>
 				{{end}}
@@ -71,9 +77,9 @@
 		<ul class="ref-list">
 			{{range .Selected.Backlinks}}
 			<li>
-				<a href="/chirps/{{.FromID}}" hx-get="/x/chirps/{{.FromID}}" hx-target="#detail" hx-swap="outerHTML"
-					>{{.FromTitle}}</a
-				>
+				<a href="/chirps/{{.FromID}}" hx-get="/x/chirps/{{.FromID}}" hx-target="#detail" hx-swap="outerHTML">
+					{{.FromTitle}}
+				</a>
 			</li>
 			{{end}}
 		</ul>

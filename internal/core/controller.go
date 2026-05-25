@@ -134,7 +134,7 @@ func (ctl *controller) handleCreateChirp(w http.ResponseWriter, r *http.Request)
 		ctl.fail(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	created, err := ctl.store.CreateChirp(r.Context(), r.FormValue("title"), r.FormValue("text"), r.FormValue("tags"))
+	created, err := ctl.store.CreateChirp(r.Context(), r.FormValue("title"), r.FormValue("text"), r.FormValue("tags"), r.FormValue("fields"))
 	if err != nil {
 		ctl.fail(w, err.Error(), http.StatusBadRequest)
 		return
@@ -172,7 +172,6 @@ func (ctl *controller) handlePreview(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ctl *controller) handleSuggest(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	kind := r.URL.Query().Get("type")
 	q := r.URL.Query().Get("q")
 	switch kind {
@@ -186,7 +185,7 @@ func (ctl *controller) handleSuggest(w http.ResponseWriter, r *http.Request) {
 		for _, tag := range tags {
 			items = append(items, map[string]string{"label": "#" + tag, "value": "#" + tag, "detail": "tag"})
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"items": items})
+		ctl.writeJSON(w, map[string]any{"items": items})
 	default:
 		chirps, err := ctl.store.SuggestTitles(r.Context(), q, 10)
 		if err != nil {
@@ -210,8 +209,109 @@ func (ctl *controller) handleSuggest(w http.ResponseWriter, r *http.Request) {
 			}
 			items = append(items, map[string]string{"label": ref.RefText, "value": ref.RefText, "detail": "wanted link"})
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"items": items})
+		ctl.writeJSON(w, map[string]any{"items": items})
 	}
+}
+
+func (ctl *controller) handleChirpFields(w http.ResponseWriter, r *http.Request) {
+	chirp, err := ctl.store.GetChirp(r.Context(), r.PathValue("id"))
+	if err != nil {
+		ctl.fail(w, "chirp not found", http.StatusNotFound)
+		return
+	}
+	ctl.respondFields(w, r, chirp)
+}
+
+func (ctl *controller) handleReplaceChirpFields(w http.ResponseWriter, r *http.Request) {
+	fields, err := ctl.fieldMapFromRequest(r)
+	if err != nil {
+		ctl.fail(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := ctl.store.ReplaceFields(r.Context(), r.PathValue("id"), fields); err != nil {
+		ctl.fail(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	chirp, err := ctl.store.GetChirp(r.Context(), r.PathValue("id"))
+	if err != nil {
+		ctl.fail(w, "chirp not found", http.StatusNotFound)
+		return
+	}
+	ctl.respondFields(w, r, chirp)
+}
+
+func (ctl *controller) handleSetChirpField(w http.ResponseWriter, r *http.Request) {
+	value, err := ctl.fieldValueFromRequest(r)
+	if err != nil {
+		ctl.fail(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := ctl.store.SetField(r.Context(), r.PathValue("id"), r.PathValue("key"), value); err != nil {
+		ctl.fail(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	chirp, err := ctl.store.GetChirp(r.Context(), r.PathValue("id"))
+	if err != nil {
+		ctl.fail(w, "chirp not found", http.StatusNotFound)
+		return
+	}
+	ctl.respondFields(w, r, chirp)
+}
+
+func (ctl *controller) handleDeleteChirpField(w http.ResponseWriter, r *http.Request) {
+	if err := ctl.store.DeleteField(r.Context(), r.PathValue("id"), r.PathValue("key")); err != nil {
+		ctl.fail(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	chirp, err := ctl.store.GetChirp(r.Context(), r.PathValue("id"))
+	if err != nil {
+		ctl.fail(w, "chirp not found", http.StatusNotFound)
+		return
+	}
+	ctl.respondFields(w, r, chirp)
+}
+
+func (ctl *controller) respondFields(w http.ResponseWriter, r *http.Request, chirp Chirp) {
+	if wantsJSON(r) {
+		ctl.writeJSON(w, map[string]any{"fields": chirp.Fields})
+		return
+	}
+	ctl.executePartial(w, r, "chirp-fields", map[string]any{"Selected": chirp})
+}
+
+func (ctl *controller) fieldMapFromRequest(r *http.Request) (map[string]string, error) {
+	if strings.Contains(strings.ToLower(r.Header.Get("Content-Type")), "application/json") {
+		var payload struct {
+			Fields map[string]string `json:"fields"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			return nil, err
+		}
+		if payload.Fields == nil {
+			return map[string]string{}, nil
+		}
+		return payload.Fields, nil
+	}
+	if err := r.ParseForm(); err != nil {
+		return nil, err
+	}
+	return parseFieldInput(r.FormValue("fields"))
+}
+
+func (ctl *controller) fieldValueFromRequest(r *http.Request) (string, error) {
+	if strings.Contains(strings.ToLower(r.Header.Get("Content-Type")), "application/json") {
+		var payload struct {
+			Value string `json:"value"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			return "", err
+		}
+		return payload.Value, nil
+	}
+	if err := r.ParseForm(); err != nil {
+		return "", err
+	}
+	return r.FormValue("value"), nil
 }
 
 func (ctl *controller) handleChirpDetail(w http.ResponseWriter, r *http.Request) {
@@ -279,7 +379,7 @@ func (ctl *controller) handleUpdateChirp(w http.ResponseWriter, r *http.Request)
 		ctl.fail(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	c, err := ctl.store.UpdateChirp(r.Context(), r.PathValue("id"), r.FormValue("title"), r.FormValue("text"), r.FormValue("tags"))
+	c, err := ctl.store.UpdateChirp(r.Context(), r.PathValue("id"), r.FormValue("title"), r.FormValue("text"), r.FormValue("tags"), r.FormValue("fields"))
 	if err != nil {
 		ctl.fail(w, err.Error(), http.StatusBadRequest)
 		return
@@ -386,8 +486,7 @@ func (ctl *controller) handleSettings(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	settings := ctl.settings(r.Context())
 	if wantsJSON(r) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(settings)
+		ctl.writeJSON(w, settings)
 		return
 	}
 	tags, _ := ctl.store.TagCounts(r.Context(), 50)
@@ -407,8 +506,7 @@ func (ctl *controller) handleUpdateSettings(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if wantsJSON(r) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(settings)
+		ctl.writeJSON(w, settings)
 		return
 	}
 	ctl.hx(w, map[string]any{
@@ -429,8 +527,7 @@ func (ctl *controller) handleOpenAPI(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ctl *controller) handleConfig(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(ctl.cfg)
+	ctl.writeJSON(w, ctl.cfg)
 }
 
 // hx writes a merged HX-Trigger header for backend-driven UI events.
@@ -448,6 +545,17 @@ func (ctl *controller) hx(w http.ResponseWriter, events map[string]any) {
 	w.Header().Set("HX-Trigger", string(payload))
 }
 
+// writeJSON writes a JSON response and logs encode failures.
+func (ctl *controller) writeJSON(w http.ResponseWriter, value any, status ...int) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	if len(status) > 0 {
+		w.WriteHeader(status[0])
+	}
+	if err := json.NewEncoder(w).Encode(value); err != nil {
+		log.Error("json response encode failed", "err", err)
+	}
+}
+
 func (ctl *controller) fail(w http.ResponseWriter, message string, status int) {
 	ctl.hx(w, map[string]any{
 		"notebird:notice": notice(NoticeError, http.StatusText(status), message),
@@ -457,9 +565,7 @@ func (ctl *controller) fail(w http.ResponseWriter, message string, status int) {
 
 func (ctl *controller) writeStatus(w http.ResponseWriter, r *http.Request, status int, state string) {
 	if wantsJSON(r) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(status)
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": state})
+		ctl.writeJSON(w, map[string]string{"status": state}, status)
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -489,8 +595,7 @@ func (ctl *controller) executePartial(w http.ResponseWriter, r *http.Request, na
 		return
 	}
 	ctl.lastTemplateMS.Store(uint64(time.Since(start).Microseconds()))
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_ = json.NewEncoder(w).Encode(map[string]any{"template": name, "html": buf.String(), "data": data})
+	ctl.writeJSON(w, map[string]any{"template": name, "html": buf.String(), "data": data})
 }
 
 func (ctl *controller) recentTemplateMS() float64 {
@@ -554,6 +659,7 @@ func (ctl *controller) newUpdateForm(ctx context.Context, c Chirp) ChirpForm {
 		TitlePlaceholder: "Title",
 		TextPlaceholder:  "Your thoughts..?",
 		TagValue:         strings.Join(c.Tags, ", "),
+		FieldValue:       formatFieldInput(c.Fields),
 		Settings:         ctl.settings(ctx),
 	}
 }

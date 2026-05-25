@@ -3,6 +3,9 @@ package core
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"strings"
+	"time"
 )
 
 type txer interface {
@@ -10,6 +13,18 @@ type txer interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
 
+// Fields returns user-defined metadata for one Chirp.
+//
+// The storage shape is EAV-like: one row per `(chirp_id, key, value)`. That is a
+// good fit for wiki metadata because users decide which fields matter. It does
+// not make the rest of Notebird an EAV model. Chirps still have ordinary columns
+// for title, text, type, and timestamps. Tags, refs, and attachments keep their
+// own tables because they have relationship behavior that fields do not.
+//
+// Keep values as strings here. Query parsing, rendering, and import/export code
+// can decide whether `due` is a date or `rating` is a number. If a field starts
+// needing constraints or joins, promote it to explicit schema instead of hiding
+// app logic in this table.
 func (s *Store) Fields(ctx context.Context, chirpID string) (map[string]string, error) {
 	rows, err := s.db.QueryContext(ctx, `select key, value from chirp_fields where chirp_id = ? order by key`, chirpID)
 	if err != nil {
@@ -28,39 +43,117 @@ func (s *Store) Fields(ctx context.Context, chirpID string) (map[string]string, 
 	return fields, rows.Err()
 }
 
+// SetField upserts one metadata field and updates the Chirp timestamp.
 func (s *Store) SetField(ctx context.Context, chirpID, key, value string) error {
-	_, err := s.db.ExecContext(ctx, `
-		insert into chirp_fields (chirp_id, key, value) values (?, ?, ?)
-		on conflict (chirp_id, key) do update set value = excluded.value
-	`, chirpID, key, value)
-	return err
-}
-
-func (s *Store) DeleteField(ctx context.Context, chirpID, key string) error {
-	_, err := s.db.ExecContext(ctx, `delete from chirp_fields where chirp_id = ? and key = ?`, chirpID, key)
-	return err
-}
-
-func (s *Store) ReplaceFields(ctx context.Context, chirpID string, fields map[string]string) error {
+	key, value, err := normalizeFieldInput(key, value)
+	if err != nil {
+		return err
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if err := replaceFields(ctx, tx, chirpID, fields); err != nil {
+	if _, err := tx.ExecContext(ctx, `
+		insert into chirp_fields (chirp_id, key, value) values (?, ?, ?)
+		on conflict (chirp_id, key) do update set value = excluded.value
+	`, chirpID, key, value); err != nil {
+		return err
+	}
+	if err := touchChirp(ctx, tx, chirpID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// DeleteField removes one metadata field and updates the Chirp timestamp.
+func (s *Store) DeleteField(ctx context.Context, chirpID, key string) error {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return errors.New("field key is required")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `delete from chirp_fields where chirp_id = ? and key = ?`, chirpID, key); err != nil {
+		return err
+	}
+	if err := touchChirp(ctx, tx, chirpID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// ReplaceFields atomically swaps all metadata fields for a Chirp.
+func (s *Store) ReplaceFields(ctx context.Context, chirpID string, fields map[string]string) error {
+	normalized, err := normalizeFields(fields)
+	if err != nil {
+		return err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := replaceFields(ctx, tx, chirpID, normalized); err != nil {
+		return err
+	}
+	if err := touchChirp(ctx, tx, chirpID); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
 func replaceFields(ctx context.Context, tx txer, chirpID string, fields map[string]string) error {
+	normalized, err := normalizeFields(fields)
+	if err != nil {
+		return err
+	}
 	if _, err := tx.ExecContext(ctx, `delete from chirp_fields where chirp_id = ?`, chirpID); err != nil {
 		return err
 	}
-	for key, value := range fields {
+	for key, value := range normalized {
 		if _, err := tx.ExecContext(ctx, `insert into chirp_fields (chirp_id, key, value) values (?, ?, ?)`, chirpID, key, value); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func normalizeFields(fields map[string]string) (map[string]string, error) {
+	normalized := map[string]string{}
+	for key, value := range fields {
+		key, value, err := normalizeFieldInput(key, value)
+		if err != nil {
+			return nil, err
+		}
+		normalized[key] = value
+	}
+	return normalized, nil
+}
+
+func normalizeFieldInput(key, value string) (string, string, error) {
+	key = strings.TrimSpace(key)
+	value = strings.TrimSpace(value)
+	if key == "" {
+		return "", "", errors.New("field key is required")
+	}
+	if strings.ContainsAny(key, "\x00\n\r\t") {
+		return "", "", errors.New("field key cannot contain control whitespace")
+	}
+	return key, value, nil
+}
+
+func touchChirp(ctx context.Context, tx txer, chirpID string) error {
+	result, err := tx.ExecContext(ctx, `update chirps set updated_at = ? where id = ?`, time.Now().UTC().Format(time.RFC3339Nano), chirpID)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err == nil && rows == 0 {
+		return sql.ErrNoRows
 	}
 	return nil
 }

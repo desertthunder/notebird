@@ -1,0 +1,17 @@
+{{define "chirp-fields"}}
+{{with fieldRows .Selected.Fields}}
+<section id="chirp-fields" class="detail__section">
+	<h3>Fields</h3>
+	<dl class="field-list">
+		{{range .}}
+		<div class="field-list__row">
+			<dt>{{.Key}}</dt>
+			<dd>{{.Value}}</dd>
+		</div>
+		{{end}}
+	</dl>
+</section>
+{{else}}
+<section id="chirp-fields" class="detail__section" hidden></section>
+{{end}}
+{{end}}
